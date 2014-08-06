@@ -9,7 +9,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -293,7 +296,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return entity;
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings( {"unchecked", "rawtypes"} )
     public T fromEntity(final Class<?> kind, final Entity entity) throws Exception {
         T obj = null;
 
@@ -331,7 +334,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         value = ((Text) value).getValue();
                     } else if (Double.class.isAssignableFrom(value.getClass()) && BigDecimal.class.isAssignableFrom(f.getType())) {
                         value = new BigDecimal(value.toString());
-                    } else if (Collection.class.isAssignableFrom(value.getClass())) {
+                    } else if (List.class.isAssignableFrom(value.getClass())) {
                         final List<Object> list = new ArrayList<Object>((Collection<? extends Object>) value);
 
                         final ListIterator<Object> iterator = list.listIterator();
@@ -348,7 +351,39 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                                 iterator.set(o);
                             }
                         }
-                        value = list;
+
+                        if (LinkedHashSet.class.isAssignableFrom(f.getType())) {
+                            value = new LinkedHashSet(list);
+                        } else if (Set.class.isAssignableFrom(f.getType()) || HashSet.class.isAssignableFrom(f.getType())) {
+                            value = new HashSet(list);
+                        } else {
+                            value = list;
+                        }
+                    } else if (Set.class.isAssignableFrom(value.getClass())) {
+                        final List<Object> list = new ArrayList<Object>((Collection<? extends Object>) value);
+
+                        final ListIterator<Object> iterator = list.listIterator();
+                        while(iterator.hasNext()) {
+                            Object o = iterator.next();
+                            if (Key.class.isAssignableFrom(o.getClass())) {
+                                final Key k = (Key) o;
+                                final com.maintainer.data.provider.Key key2 = createNobodyelsesKey(k);
+                                if (autocreate != null && autocreate.keysOnly()) {
+                                    o = getKeyedOnly(key2);
+                                } else {
+                                    o = get(key2);
+                                }
+                                iterator.set(o);
+                            }
+                        }
+
+                        if (LinkedHashSet.class.isAssignableFrom(f.getType())) {
+                            value = new LinkedHashSet(list);
+                        } else if (Set.class.isAssignableFrom(f.getType()) || HashSet.class.isAssignableFrom(f.getType())) {
+                            value = new HashSet(list);
+                        } else {
+                            value = list;
+                        }
                     }
 
                     if (JsonString.class.isAssignableFrom(f.getType())) {
