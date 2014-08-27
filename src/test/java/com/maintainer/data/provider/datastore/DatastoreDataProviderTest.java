@@ -42,6 +42,9 @@ public class DatastoreDataProviderTest extends TestCase {
 
         Collections.sort(list, new SortComparator(ClassA.class, "b.c.name"));
         assertEquals("[A, B, C]", list.toString());
+
+        Collections.sort(list, new SortComparator(ClassA.class, "-b.c.name"));
+        assertEquals("[C, B, A]", list.toString());
     }
 
     private class SortComparator implements Comparator<Object> {
@@ -60,6 +63,12 @@ public class DatastoreDataProviderTest extends TestCase {
             int compareTo = 0;
             try {
                 for (String s : sorts) {
+                    int direction = 1;
+                    if (s.startsWith("-")) {
+                        direction = -1;
+                        s = s.substring(1);
+                    }
+
                     List<Field> fields = getFields(clazz, s);
                     Object v1 = getValue(o1, fields);
                     Object v2 = getValue(o2, fields);
@@ -71,7 +80,7 @@ public class DatastoreDataProviderTest extends TestCase {
                     Comparable c1 = (Comparable) v1;
                     Comparable c2 = (Comparable) v2;
 
-                    compareTo = c1.compareTo(c2);
+                    compareTo = c1.compareTo(c2) * direction;
                     if (compareTo != 0) {
                         break;
                     }
