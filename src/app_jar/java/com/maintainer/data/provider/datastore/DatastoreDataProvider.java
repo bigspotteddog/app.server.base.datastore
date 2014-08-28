@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -53,6 +52,7 @@ import com.maintainer.data.model.NotIndexed;
 import com.maintainer.data.model.NotStored;
 import com.maintainer.data.provider.Filter;
 import com.maintainer.data.provider.Query;
+import com.maintainer.util.FieldSortComparator;
 import com.maintainer.util.JsonString;
 import com.maintainer.util.Utils;
 
@@ -237,6 +237,11 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         final ResultListImpl<T> list = getEntities(q, options, limit);
 
         if (!list.isEmpty()) {
+            String order = query.getOrder();
+            if (!Utils.isEmpty(order)) {
+                Collections.sort(list, new FieldSortComparator(query.getKind(), order));
+            }
+
             boolean hasMoreRecords = false;
             if (limit > 0) {
                 hasMoreRecords = list.size() > limit;
@@ -640,7 +645,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
                     field = field.substring(1);
                     if (!"id".equals(field.toLowerCase())) {
-                        q.addSort(field, sortDirection);
+                        addSortField(q, field, sortDirection);
                     }
                 } else {
                     if (!"id".equals(field.toLowerCase())) {
@@ -652,7 +657,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         if (field.startsWith("+")) {
                             field = field.substring(1);
                         }
-                        q.addSort(field, sortDirection);
+                        addSortField(q, field, sortDirection);
                     }
                 }
             }
@@ -667,6 +672,14 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             q.addSort(Entity.KEY_RESERVED_PROPERTY, SortDirection.ASCENDING);
         }
         return q;
+    }
+
+    private void addSortField(final com.google.appengine.api.datastore.Query q, String field, SortDirection sortDirection) {
+        if (field.indexOf('.') > -1) {
+            return;
+        }
+
+        q.addSort(field, sortDirection);
     }
 
     private String getInequalityField(final Query query) {

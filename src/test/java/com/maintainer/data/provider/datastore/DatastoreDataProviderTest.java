@@ -1,16 +1,14 @@
 package com.maintainer.data.provider.datastore;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import junit.framework.TestCase;
 
 import org.junit.Test;
+
+import com.maintainer.util.FieldSortComparator;
 
 public class DatastoreDataProviderTest extends TestCase {
 
@@ -22,115 +20,50 @@ public class DatastoreDataProviderTest extends TestCase {
         a1.b.name = "B";
         a1.b.c = new ClassC();
         a1.b.c.name = "C";
+        a1.b.c.v = 1;
 
         ClassA a2 = new ClassA();
         a2.name = "B";
         a2.b = new ClassB();
-        a2.b.name = "C";
+        a2.b.name = "A";
         a2.b.c = new ClassC();
         a2.b.c.name = "D";
+        a2.b.c.v = 2;
 
         ClassA a3 = new ClassA();
-        a3.name = "C";
+        a3.name = "B";
         a3.b = new ClassB();
-        a3.b.name = "D";
+        a3.b.name = "A";
         a3.b.c = new ClassC();
-        a3.b.c.name = "E";
+        a3.b.c.name = "C";
+        a3.b.c.v = 3;
 
         List<ClassA> list = Arrays.asList(a2, a1, a3);
-        assertEquals("[B, A, C]", list.toString());
+        assertEquals("[B.A.D.2, A.B.C.1, B.A.C.3]", list.toString());
 
-        Collections.sort(list, new SortComparator(ClassA.class, "b.c.name"));
-        assertEquals("[A, B, C]", list.toString());
+        list = Arrays.asList(a2, a1, a3);
+        Collections.sort(list, new FieldSortComparator(ClassA.class, "name"));
+        assertEquals("[A.B.C.1, B.A.D.2, B.A.C.3]", list.toString());
 
-        Collections.sort(list, new SortComparator(ClassA.class, "-b.c.name"));
-        assertEquals("[C, B, A]", list.toString());
-    }
+        list = Arrays.asList(a2, a1, a3);
+        Collections.sort(list, new FieldSortComparator(ClassA.class, "-name"));
+        assertEquals("[B.A.D.2, B.A.C.3, A.B.C.1]", list.toString());
 
-    private class SortComparator implements Comparator<Object> {
+        list = Arrays.asList(a2, a1, a3);
+        Collections.sort(list, new FieldSortComparator(ClassA.class, "b.c.name"));
+        assertEquals("[A.B.C.1, B.A.C.3, B.A.D.2]", list.toString());
 
-        private final Class<?> clazz;
-        private final String[] sorts;
+        list = Arrays.asList(a2, a1, a3);
+        Collections.sort(list, new FieldSortComparator(ClassA.class, "-b.c.name"));
+        assertEquals("[B.A.D.2, A.B.C.1, B.A.C.3]", list.toString());
 
-        public SortComparator(Class<?> clazz, String order) {
-            this.clazz = clazz;
-            this.sorts = order.replaceAll("^[,\\s]+", "").split("[,\\s]+");
-        }
+        list = Arrays.asList(a2, a1, a3);
+        Collections.sort(list, new FieldSortComparator(ClassA.class, "-name, b.c.name"));
+        assertEquals("[B.A.C.3, B.A.D.2, A.B.C.1]", list.toString());
 
-        @SuppressWarnings({ "rawtypes", "unchecked" })
-        @Override
-        public int compare(Object o1, Object o2) {
-            int compareTo = 0;
-            try {
-                for (String s : sorts) {
-                    int direction = 1;
-                    if (s.startsWith("-")) {
-                        direction = -1;
-                        s = s.substring(1);
-                    }
-
-                    List<Field> fields = getFields(clazz, s);
-                    Object v1 = getValue(o1, fields);
-                    Object v2 = getValue(o2, fields);
-
-                    if (!Comparable.class.isAssignableFrom(v1.getClass()) || !Comparable.class.isAssignableFrom(v2.getClass())) {
-                        throw new Exception("Not comparable.");
-                    }
-
-                    Comparable c1 = (Comparable) v1;
-                    Comparable c2 = (Comparable) v2;
-
-                    compareTo = c1.compareTo(c2) * direction;
-                    if (compareTo != 0) {
-                        break;
-                    }
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            return compareTo;
-        }
-
-        private List<Field> getFields(Class<?> clazz, String order) throws Exception {
-            String[] split = order.split("\\.");
-
-            List<Field> fields = new ArrayList<Field>();
-            for (String s : split) {
-                Field field = clazz.getDeclaredField(s);
-                fields.add(field);
-
-                clazz = field.getType();
-            }
-
-            return fields;
-        }
-
-        private Object getValue(Object obj, List<Field> fields) throws Exception {
-            Field typeField = fields.get(fields.size() - 1);
-            Class type = typeField.getType();
-
-            for (Field f : fields) {
-                if (obj == null) {
-                    return "";
-                }
-
-                Class<? extends Object> clazz = obj.getClass();
-
-                if (Collection.class.isAssignableFrom(f.getType())) {
-                    return "";
-                }
-
-                f.setAccessible(true);
-                obj = f.get(obj);
-            }
-
-            if (obj == null) {
-                return "";
-            }
-
-            return obj;
-        }
-
+        list = Arrays.asList(a2, a1, a3);
+        Collections.sort(list, new FieldSortComparator(ClassA.class, "name, b.c.v"));
+        assertEquals("[A.B.C.1, B.A.D.2, B.A.C.3]", list.toString());
     }
 
     public class ClassA {
@@ -139,7 +72,7 @@ public class DatastoreDataProviderTest extends TestCase {
 
         @Override
         public String toString() {
-            return name;
+            return name + '.' + b.name + '.' + b.c.name + '.' + b.c.v;
         }
     }
 
@@ -150,5 +83,6 @@ public class DatastoreDataProviderTest extends TestCase {
 
     public class ClassC {
         private String name;
+        private int v;
     }
 }
