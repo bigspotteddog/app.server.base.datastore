@@ -802,12 +802,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     @SuppressWarnings("unchecked")
-    private ResultListImpl<T> getEntities(final com.google.appengine.api.datastore.Query q, FetchOptions options, final int limit) throws Exception {
-        final boolean isKeysOnly = q.isKeysOnly();
-
-        if (!isKeysOnly) {
-            q.setKeysOnly();
-        }
+    protected ResultListImpl<T> getEntities(final com.google.appengine.api.datastore.Query q, FetchOptions options, final int limit) throws Exception {
+        final boolean isKeysOnly = setKeysOnly(q);
 
         final DatastoreService datastore = getDatastore();
         final PreparedQuery p = datastore.prepare(q);
@@ -914,6 +910,15 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         list.setRemovedCursors(removedCursors);
 
         return list;
+    }
+
+    protected boolean setKeysOnly(final com.google.appengine.api.datastore.Query q) {
+        final boolean isKeysOnly = q.isKeysOnly();
+
+        if (!isKeysOnly) {
+            q.setKeysOnly();
+        }
+        return isKeysOnly;
     }
 
     public Map<com.maintainer.data.provider.Key, Object> getCachedAndTrimKeysNeeded(final Collection<com.maintainer.data.provider.Key> keysNeeded) throws Exception {

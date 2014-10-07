@@ -3,7 +3,7 @@
 	<classpathentry kind="src" path="src/app_jar/java"/>
 	<classpathentry kind="src" path="src/test/java"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
-	<classpathentry kind="lib" path="lib/runtime/app.server.base-1.0.0.UNSTABLE.jar"/>
+	<classpathentry kind="lib" path="lib/runtime/app.server.base-1.0.0.UNSTABLE.jar" sourcepath="/app.server.base"/>
 	<classpathentry kind="lib" path="lib/runtime/appengine-api.jar"/>
 	<classpathentry kind="lib" path="lib/runtime/commons-lang3-3.1.jar"/>
 	<classpathentry kind="lib" path="lib/runtime/gson-2.2.3-SNAPSHOT.jar"/>
