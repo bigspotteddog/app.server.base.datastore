@@ -19,6 +19,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.zip.DataFormatException;
+import java.util.zip.Deflater;
+import java.util.zip.Inflater;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -1146,8 +1149,31 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private static void writeBlob(final Entity entity, final byte[] bytes, final Integer version, final boolean cache) throws Exception {
-        final Blob blob = new Blob(bytes);
-        entity.setUnindexedProperty("content", blob);
+        byte[] deflated = deflate(bytes);
+
+//        int bytesRemaining = deflated.length;
+//        int count = 0;
+//        while (bytesRemaining > 0) {
+//            int length = bytesRemaining > 1048503? 1048503 : bytesRemaining;
+//            byte[] dest = new byte[length];
+//            System.arraycopy(deflated, 1048503 * count, dest, 0, length);
+//            final Blob blob = new Blob(dest);
+//            String name = "content" + (count > 0?count:"");
+//            entity.setUnindexedProperty(name, blob);
+//            bytesRemaining -= 1048503;
+//            count++;
+//        }
+//
+//        String name = "content" + (count > 0?count:"");
+//        while (entity.getProperty(name) != null) {
+//            entity.removeProperty(name);
+//            count++;
+//            name = "content" + (count > 0?count:"");
+//        }
+
+        entity.setUnindexedProperty("content", new Blob(deflated));
+        entity.setUnindexedProperty("length", deflated.length);
+        entity.setUnindexedProperty("encoding", "zip");
 
         final Key datastoreKey = entity.getKey();
         final Key parent = datastoreKey.getParent();
@@ -1160,15 +1186,26 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         if (version != null) {
             entity.setUnindexedProperty("version", version);
         }
+
+        // TODO: This is what is wrong. We must use the synchronous put because the next write
+        // will happen before the write completes. Need to change the process to write to sub-indexes
+        // first, then write to the main index when all is done.
         DatastoreServiceFactory.getDatastoreService().put(entity);
 
-        if (cache) {
-            final String keyToString = datastoreKey.toString();
+        final String keyToString = datastoreKey.toString();
+
+        if (cache && bytes.length <= 1048503) {
             final com.maintainer.data.provider.datastore.Blob blob2 = new com.maintainer.data.provider.datastore.Blob(bytes);
             if (version != null) {
                 blob2.setVersion(version);
             }
-            MyMemcacheServiceFactory.getMemcacheService().put(keyToString, blob2);
+            try {
+                MyMemcacheServiceFactory.getMemcacheService().put(keyToString, blob2);
+            } catch(Exception e) {
+                MyMemcacheServiceFactory.getMemcacheService().delete(keyToString);
+            }
+        } else {
+            MyMemcacheServiceFactory.getMemcacheService().delete(keyToString);
         }
     }
 
@@ -1219,23 +1256,46 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             byte[] bytes = null;
 
             final Entity entity = DatastoreServiceFactory.getDatastoreService().get(key);
+            final String encoding = (String) entity.getProperty("encoding");
 
-            final Blob blob = (Blob) entity.getProperty("content");
-            if (blob != null) {
-                bytes = blob.getBytes();
-
-                blob2 = new com.maintainer.data.provider.datastore.Blob(bytes);
-
-                final Integer version = (Integer) entity.getProperty("version");
-                if (version != null) {
-                    blob2.setVersion(version);
+            long length = 0;
+            if ("json".equals(encoding)) {
+                length = (Long) entity.getProperty("length");
+                bytes = new byte[(int) length];
+                int bytesRemaining = (int) length;
+                int count = 0;
+                while (bytesRemaining > 0) {
+                    final String name = "content" + (count > 0?count:"");
+                    Blob blob = (Blob) entity.getProperty(name);
+                    byte[] src = blob.getBytes();
+                    System.arraycopy(src, 0, bytes, 1048503 * count, src.length);
+                    bytesRemaining -= src.length;
                 }
-                MemcacheServiceFactory.getMemcacheService().put(keyToString, blob2);
+            } else if ("zip".equals(encoding)) {
+                Blob blob = (Blob) entity.getProperty("content");
+                bytes = blob.getBytes();
+                bytes = inflate(bytes);
+                length = bytes.length;
+            } else {
+                Blob blob = (Blob) entity.getProperty("content");
+                bytes = blob.getBytes();
+                length = bytes.length;
             }
 
-            int length = -1;
-            if (bytes != null) {
-                length = bytes.length;
+            blob2 = new com.maintainer.data.provider.datastore.Blob(bytes);
+
+            final Integer version = (Integer) entity.getProperty("version");
+            if (version != null) {
+                blob2.setVersion(version);
+            }
+            if (bytes.length <= 1048503) {
+                try {
+                    MemcacheServiceFactory.getMemcacheService().put(keyToString, blob2);
+                } catch (Exception e) {
+                    MemcacheServiceFactory.getMemcacheService().delete(keyToString);
+                }
+            } else {
+                MemcacheServiceFactory.getMemcacheService().delete(keyToString);
             }
 
             log.warning(MessageFormat.format("Retrieving index {0} results in {1} bytes.", keyToString, length));
@@ -1258,5 +1318,31 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         DatastoreServiceFactory.getAsyncDatastoreService().delete(key);
         final String keyToString = KeyFactory.keyToString(key);
         MyMemcacheServiceFactory.getAsyncMemcacheService().delete(keyToString);
+    }
+
+    public static byte[] inflate(final byte[] bytes) throws DataFormatException {
+        Inflater decompresser = new Inflater();
+        decompresser.setInput(bytes, 0, bytes.length);
+        byte[] array = new byte[1048576];
+        int inflate = decompresser.inflate(array);
+        decompresser.end();
+
+        byte[] dest = new byte[inflate];
+        System.arraycopy( array, 0, dest, 0, inflate );
+        return dest;
+    }
+
+
+    public static byte[] deflate(byte[] bytes) {
+        final byte[] output = new byte[1048576];
+        final Deflater compresser = new Deflater();
+        compresser.setInput(bytes);
+        compresser.finish();
+        final int length = compresser.deflate(output);
+        compresser.end();
+
+        final byte[] dest = new byte[length];
+        System.arraycopy( output, 0, dest, 0, length );
+        return dest;
     }
 }
