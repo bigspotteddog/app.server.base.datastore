@@ -1,5 +1,6 @@
 package com.maintainer.data.provider.datastore;
 
+import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -1149,6 +1150,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private static void writeBlob(final Entity entity, final byte[] bytes, final Integer version, final boolean cache) throws Exception {
+        log.warning("Undeflated bytes: " + bytes.length);
         byte[] deflated = deflate(bytes);
 
 //        int bytesRemaining = deflated.length;
@@ -1171,6 +1173,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 //            name = "content" + (count > 0?count:"");
 //        }
 
+        log.warning("Deflated bytes: " + deflated.length);
         entity.setUnindexedProperty("content", new Blob(deflated));
         entity.setUnindexedProperty("length", deflated.length);
         entity.setUnindexedProperty("encoding", "zip");
@@ -1247,9 +1250,10 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     public static com.maintainer.data.provider.datastore.Blob readBlob(final Key key) throws Exception {
         final String keyToString = key.toString();
+        log.warning("Reading: " + keyToString);
         com.maintainer.data.provider.datastore.Blob blob2 =  (com.maintainer.data.provider.datastore.Blob) MyMemcacheServiceFactory.getMemcacheService().get(keyToString);
         if (blob2 != null) {
-            return blob2;
+            // return blob2;
         }
 
         try {
@@ -1258,6 +1262,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             final Entity entity = DatastoreServiceFactory.getDatastoreService().get(key);
             final String encoding = (String) entity.getProperty("encoding");
 
+            log.warning("Encoding: " + encoding);
             long length = 0;
             if ("json".equals(encoding)) {
                 length = (Long) entity.getProperty("length");
@@ -1272,10 +1277,13 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                     bytesRemaining -= src.length;
                 }
             } else if ("zip".equals(encoding)) {
+                log.warning("Reading zip...");
                 Blob blob = (Blob) entity.getProperty("content");
                 bytes = blob.getBytes();
+                log.warning("Retrieved bytes: " + bytes.length);
                 bytes = inflate(bytes);
                 length = bytes.length;
+                log.warning("Inflated bytes: " + length);
             } else {
                 Blob blob = (Blob) entity.getProperty("content");
                 bytes = blob.getBytes();
@@ -1320,18 +1328,21 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         MyMemcacheServiceFactory.getAsyncMemcacheService().delete(keyToString);
     }
 
-    public static byte[] inflate(final byte[] bytes) throws DataFormatException {
+    public static byte[] inflate(final byte[] bytes) throws Exception {
         Inflater decompresser = new Inflater();
-        decompresser.setInput(bytes, 0, bytes.length);
-        byte[] array = new byte[1048576];
-        int inflate = decompresser.inflate(array);
+        decompresser.setInput(bytes);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        while ((!decompresser.finished())) {
+            byte[] buff=new byte[1024];
+            int count=decompresser.inflate(buff);
+            baos.write(buff,0,count);
+        }
+        byte[] output = baos.toByteArray();
+        baos.close();
         decompresser.end();
-
-        byte[] dest = new byte[inflate];
-        System.arraycopy( array, 0, dest, 0, inflate );
-        return dest;
+        return output;
     }
-
 
     public static byte[] deflate(byte[] bytes) {
         final byte[] output = new byte[1048576];
