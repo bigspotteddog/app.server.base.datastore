@@ -1247,16 +1247,21 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     public static com.maintainer.data.provider.datastore.Blob readBlob(final Key key) throws Exception {
         final String keyToString = key.toString();
         log.warning("Reading: " + keyToString);
-        // byte[] deflated = (byte[]) MyMemcacheServiceFactory.getMemcacheService().get(keyToString);
+        byte[] deflated = null;
         byte[] inflated = null;
-	byte[] deflated = null;
-	
+
+        Object cached = MyMemcacheServiceFactory.getMemcacheService().get(keyToString);
+        log.warning("cached = " + cached);
+        if (cached != null) {
+            deflated = (byte[]) cached;
+            deflated = inflate(deflated);
+            log.warning("deflated.length = " + deflated.length);
+        }
         long length = 0;
 
         try {
-            final Entity entity = DatastoreServiceFactory.getDatastoreService().get(key);
-
-            if (deflated == null) {
+            if (deflated == null || deflated.length == 0) {
+                final Entity entity = DatastoreServiceFactory.getDatastoreService().get(key);
                 final String encoding = (String) entity.getProperty("encoding");
 
                 log.warning("Encoding: " + encoding);
@@ -1293,14 +1298,10 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 }
             } else {
                 inflated = deflated;
+                length = inflated.length;
             }
 
             com.maintainer.data.provider.datastore.Blob blob2 = new com.maintainer.data.provider.datastore.Blob(inflated);
-
-            final Integer version = (Integer) entity.getProperty("version");
-            if (version != null) {
-                blob2.setVersion(version);
-            }
 
             log.warning(MessageFormat.format("Retrieving index {0} results in {1} bytes.", keyToString, length));
 
