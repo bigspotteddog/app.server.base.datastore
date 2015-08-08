@@ -1197,13 +1197,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         final String keyToString = datastoreKey.toString();
 
-        if (cache && bytes.length <= 1048503) {
-            final com.maintainer.data.provider.datastore.Blob blob2 = new com.maintainer.data.provider.datastore.Blob(bytes);
-            if (version != null) {
-                blob2.setVersion(version);
-            }
+        if (cache) {
             try {
-                MyMemcacheServiceFactory.getMemcacheService().put(keyToString, blob2);
+                MyMemcacheServiceFactory.getMemcacheService().put(keyToString, deflated);
             } catch(Exception e) {
                 MyMemcacheServiceFactory.getMemcacheService().delete(keyToString);
             }
@@ -1251,65 +1247,66 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     public static com.maintainer.data.provider.datastore.Blob readBlob(final Key key) throws Exception {
         final String keyToString = key.toString();
         log.warning("Reading: " + keyToString);
-        com.maintainer.data.provider.datastore.Blob blob2 =  (com.maintainer.data.provider.datastore.Blob) MyMemcacheServiceFactory.getMemcacheService().get(keyToString);
-        if (blob2 != null) {
-            // return blob2;
-        }
+        // byte[] deflated = (byte[]) MyMemcacheServiceFactory.getMemcacheService().get(keyToString);
+        byte[] inflated = null;
+	byte[] deflated = null;
+	
+        long length = 0;
 
         try {
-            byte[] bytes = null;
-
             final Entity entity = DatastoreServiceFactory.getDatastoreService().get(key);
-            final String encoding = (String) entity.getProperty("encoding");
 
-            log.warning("Encoding: " + encoding);
-            long length = 0;
-            if ("json".equals(encoding)) {
-                length = (Long) entity.getProperty("length");
-                bytes = new byte[(int) length];
-                int bytesRemaining = (int) length;
-                int count = 0;
-                while (bytesRemaining > 0) {
-                    final String name = "content" + (count > 0?count:"");
-                    Blob blob = (Blob) entity.getProperty(name);
-                    byte[] src = blob.getBytes();
-                    System.arraycopy(src, 0, bytes, 1048503 * count, src.length);
-                    bytesRemaining -= src.length;
+            if (deflated == null) {
+                final String encoding = (String) entity.getProperty("encoding");
+
+                log.warning("Encoding: " + encoding);
+                if ("json".equals(encoding)) {
+                    length = (Long) entity.getProperty("length");
+                    deflated = new byte[(int) length];
+                    int bytesRemaining = (int) length;
+                    int count = 0;
+                    while (bytesRemaining > 0) {
+                        final String name = "content" + (count > 0?count:"");
+                        Blob blob = (Blob) entity.getProperty(name);
+                        byte[] src = blob.getBytes();
+                        System.arraycopy(src, 0, deflated, 1048503 * count, src.length);
+                        bytesRemaining -= src.length;
+                    }
+                } else if ("zip".equals(encoding)) {
+                    log.warning("Reading zip...");
+                    Blob blob = (Blob) entity.getProperty("content");
+                    deflated = blob.getBytes();
+                    log.warning("Retrieved bytes: " + deflated.length);
+                    inflated = inflate(deflated);
+                    length = inflated.length;
+                    log.warning("Inflated bytes: " + length);
+                } else {
+                    Blob blob = (Blob) entity.getProperty("content");
+                    deflated = blob.getBytes();
+                    length = deflated.length;
                 }
-            } else if ("zip".equals(encoding)) {
-                log.warning("Reading zip...");
-                Blob blob = (Blob) entity.getProperty("content");
-                bytes = blob.getBytes();
-                log.warning("Retrieved bytes: " + bytes.length);
-                bytes = inflate(bytes);
-                length = bytes.length;
-                log.warning("Inflated bytes: " + length);
-            } else {
-                Blob blob = (Blob) entity.getProperty("content");
-                bytes = blob.getBytes();
-                length = bytes.length;
-            }
 
-            blob2 = new com.maintainer.data.provider.datastore.Blob(bytes);
-
-            final Integer version = (Integer) entity.getProperty("version");
-            if (version != null) {
-                blob2.setVersion(version);
-            }
-            if (bytes.length <= 1048503) {
                 try {
-                    MemcacheServiceFactory.getMemcacheService().put(keyToString, blob2);
+                    MemcacheServiceFactory.getMemcacheService().put(keyToString, deflated);
                 } catch (Exception e) {
                     MemcacheServiceFactory.getMemcacheService().delete(keyToString);
                 }
             } else {
-                MemcacheServiceFactory.getMemcacheService().delete(keyToString);
+                inflated = deflated;
+            }
+
+            com.maintainer.data.provider.datastore.Blob blob2 = new com.maintainer.data.provider.datastore.Blob(inflated);
+
+            final Integer version = (Integer) entity.getProperty("version");
+            if (version != null) {
+                blob2.setVersion(version);
             }
 
             log.warning(MessageFormat.format("Retrieving index {0} results in {1} bytes.", keyToString, length));
 
             return blob2;
         } catch (final EntityNotFoundException e) {}
+
         return null;
     }
 
