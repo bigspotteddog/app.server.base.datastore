@@ -1254,7 +1254,23 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         log.warning("cached = " + cached);
         if (cached != null) {
             deflated = (byte[]) cached;
-            deflated = inflate(deflated);
+            try {
+            	deflated = inflate(deflated);
+            } catch (Exception e) {
+            	log.severe(e.getMessage());
+            	
+            	StringBuilder buf = new StringBuilder();
+            	buf.append('[');
+            	for (int i = 0; i < 20; i++) {
+            		if (deflated.length < i) {
+            			break;
+            		}
+            		buf.append(deflated[i]);
+            		buf.append(", ");
+            	}
+            	buf.append(']');
+            	log.severe(buf.toString());
+            }
             log.warning("deflated.length = " + deflated.length);
         }
         long length = 0;
