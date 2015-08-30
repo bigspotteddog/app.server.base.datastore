@@ -20,7 +20,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
@@ -339,6 +338,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         } else {
                             value = get(key2);
                         }
+                    } else if (Blob.class.isAssignableFrom(value.getClass())) {
+                        value = ((Blob) value).getBytes();
                     } else if (Text.class.isAssignableFrom(value.getClass())) {
                         value = ((Text) value).getValue();
                     } else if (Double.class.isAssignableFrom(value.getClass()) && BigDecimal.class.isAssignableFrom(f.getType())) {
@@ -567,6 +568,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 } else if (BigDecimal.class.isAssignableFrom(value.getClass())) {
                     final BigDecimal decimal = (BigDecimal) value;
                     value = decimal.doubleValue();
+                } else if (value.getClass().isAssignableFrom(byte[].class)) {
+                    value = new Blob((byte[]) value);
                 }
             }
 
@@ -1258,7 +1261,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             	deflated = inflate(deflated);
             } catch (Exception e) {
             	log.severe(e.getMessage());
-            	
+
             	StringBuilder buf = new StringBuilder();
             	buf.append('[');
             	for (int i = 0; i < 20; i++) {
