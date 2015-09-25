@@ -334,6 +334,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         } else {
                             value = get(key2);
                         }
+                    } else if (Blob.class.isAssignableFrom(value.getClass())) {
+                        value = ((Blob) value).getBytes();
                     } else if (Text.class.isAssignableFrom(value.getClass())) {
                         value = ((Text) value).getValue();
                     } else if (Double.class.isAssignableFrom(value.getClass()) && BigDecimal.class.isAssignableFrom(f.getType())) {
@@ -562,6 +564,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 } else if (BigDecimal.class.isAssignableFrom(value.getClass())) {
                     final BigDecimal decimal = (BigDecimal) value;
                     value = decimal.doubleValue();
+                } else if (value.getClass().isAssignableFrom(byte[].class)) {
+                    value = new Blob((byte[]) value);
                 }
             }
 
