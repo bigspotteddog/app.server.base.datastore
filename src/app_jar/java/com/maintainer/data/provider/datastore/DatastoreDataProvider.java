@@ -585,14 +585,21 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private ArrayList<Field> getFields(final T target) {
-        final ArrayList<Field> fields = new ArrayList<Field>();
+        final Map<String, Field> fieldMap = new LinkedHashMap<String, Field>();
         Class<?> clazz = target.getClass();
         while (clazz != null) {
             final Field[] fields2 = clazz.getDeclaredFields();
-            fields.addAll(Lists.newArrayList(fields2));
+            for (int i = 0; i < fields2.length; i++) {
+                final Field f = fields2[i];
+                final String name = f.getName();
+
+                if (!fieldMap.containsKey(name)) {
+                    fieldMap.put(name, f);
+                }
+            }
             clazz = clazz.getSuperclass();
         }
-        return fields;
+        return new ArrayList<Field>(fieldMap.values());
     }
 
     private void addFilter(final com.google.appengine.api.datastore.Query q, final String propertyName, final FilterOperator operator, Object value) {
