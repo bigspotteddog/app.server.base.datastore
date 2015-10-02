@@ -92,7 +92,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             if (cached.getKey() == null) {
                 cached.setKey(key);
             }
-            log.fine(key + " returned from cache.");
+            // log.fine(key + " returned from cache.");
             return cached;
         }
 
@@ -148,7 +148,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             if (checkEqual(target, existing)) {
                 return target;
             } else {
-                log.fine(nobodyelsesKey + " changed.");
+                // log.fine(nobodyelsesKey + " changed.");
             }
         }
 
@@ -1153,7 +1153,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private static void writeBlob(final Entity entity, final byte[] bytes, final Integer version, final boolean cache) throws Exception {
-        log.warning("Undeflated bytes: " + bytes.length);
+        // log.warning("Undeflated bytes: " + bytes.length);
         byte[] deflated = deflate(bytes);
 
 //        int bytesRemaining = deflated.length;
@@ -1176,7 +1176,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 //            name = "content" + (count > 0?count:"");
 //        }
 
-        log.warning("Deflated bytes: " + deflated.length);
+        // log.warning("Deflated bytes: " + deflated.length);
         entity.setUnindexedProperty("content", new Blob(deflated));
         entity.setUnindexedProperty("length", deflated.length);
         entity.setUnindexedProperty("encoding", "zip");
@@ -1249,12 +1249,12 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     public static com.maintainer.data.provider.datastore.Blob readBlob(final Key key) throws Exception {
         final String keyToString = key.toString();
-        log.warning("Reading: " + keyToString);
+        // log.warning("Reading: " + keyToString);
         byte[] deflated = null;
         byte[] inflated = null;
 
         Object cached = MyMemcacheServiceFactory.getMemcacheService().get(keyToString);
-        log.warning("cached = " + cached);
+        // log.warning("cached = " + cached);
         if (cached != null) {
             deflated = (byte[]) cached;
             try {
@@ -1274,7 +1274,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             	buf.append(']');
             	log.severe(buf.toString());
             }
-            log.warning("deflated.length = " + deflated.length);
+            // log.warning("deflated.length = " + deflated.length);
         }
         long length = 0;
 
@@ -1283,7 +1283,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 final Entity entity = DatastoreServiceFactory.getDatastoreService().get(key);
                 final String encoding = (String) entity.getProperty("encoding");
 
-                log.warning("Encoding: " + encoding);
+                // log.warning("Encoding: " + encoding);
                 if ("json".equals(encoding)) {
                     length = (Long) entity.getProperty("length");
                     deflated = new byte[(int) length];
@@ -1297,13 +1297,13 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         bytesRemaining -= src.length;
                     }
                 } else if ("zip".equals(encoding)) {
-                    log.warning("Reading zip...");
+                    // log.warning("Reading zip...");
                     Blob blob = (Blob) entity.getProperty("content");
                     deflated = blob.getBytes();
-                    log.warning("Retrieved bytes: " + deflated.length);
+                    // log.warning("Retrieved bytes: " + deflated.length);
                     inflated = inflate(deflated);
                     length = inflated.length;
-                    log.warning("Inflated bytes: " + length);
+                    // log.warning("Inflated bytes: " + length);
                 } else {
                     Blob blob = (Blob) entity.getProperty("content");
                     deflated = blob.getBytes();
@@ -1322,7 +1322,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
             com.maintainer.data.provider.datastore.Blob blob2 = new com.maintainer.data.provider.datastore.Blob(inflated);
 
-            log.warning(MessageFormat.format("Retrieving index {0} results in {1} bytes.", keyToString, length));
+            // log.warning(MessageFormat.format("Retrieving index {0} results in {1} bytes.", keyToString, length));
 
             return blob2;
         } catch (final EntityNotFoundException e) {}
