@@ -18,7 +18,6 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
@@ -44,9 +43,6 @@ import com.google.appengine.api.datastore.Text;
 import com.google.appengine.api.memcache.MemcacheService;
 import com.google.appengine.api.memcache.MemcacheServiceFactory;
 import com.google.common.base.Strings;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
@@ -61,7 +57,7 @@ import com.maintainer.util.Utils;
 
 public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatastoreDataProvider<T> {
     private static final Logger log = Logger.getLogger(DatastoreDataProvider.class.getName());
-    private static final Cache<String, Object> cache = CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.HOURS).build();
+//    private static final Cache<String, Object> cache = CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.HOURS).build();
     private static final MemcacheService memcache = MyMemcacheServiceFactory.getMemcacheService();
 
     private boolean nocache;
@@ -589,14 +585,21 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private ArrayList<Field> getFields(final T target) {
-        final ArrayList<Field> fields = new ArrayList<Field>();
+        final Map<String, Field> fieldMap = new LinkedHashMap<String, Field>();
         Class<?> clazz = target.getClass();
         while (clazz != null) {
             final Field[] fields2 = clazz.getDeclaredFields();
-            fields.addAll(Lists.newArrayList(fields2));
+            for (int i = 0; i < fields2.length; i++) {
+                final Field f = fields2[i];
+                final String name = f.getName();
+
+                if (!fieldMap.containsKey(name)) {
+                    fieldMap.put(name, f);
+                }
+            }
             clazz = clazz.getSuperclass();
         }
-        return fields;
+        return new ArrayList<Field>(fieldMap.values());
     }
 
     private void addFilter(final com.google.appengine.api.datastore.Query q, final String propertyName, final FilterOperator operator, Object value) {
@@ -1017,7 +1020,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     protected void putLocalCache(final com.maintainer.data.provider.Key key, final Object o) {
         if (local) {
-            cache.put(key.toString(), o);
+//            cache.put(key.toString(), o);
         }
     }
 
@@ -1026,8 +1029,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             return null;
         }
 
-        final Object o = cache.getIfPresent(key.toString());
-        return o;
+//        final Object o = cache.getIfPresent(key.toString());
+//        return o;
+        return null;
     }
 
     protected Map<com.maintainer.data.provider.Key, Object> getAllCache(final Collection<com.maintainer.data.provider.Key> keys) throws Exception {
@@ -1061,16 +1065,17 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             return Collections.emptyMap();
         }
 
-        final List<String> stringKeys = getStringKeys(keys);
-
-        final ImmutableMap<String, Object> allPresent = cache.getAllPresent(stringKeys);
-
-        final Map<com.maintainer.data.provider.Key, Object> keysPresent = new LinkedHashMap<com.maintainer.data.provider.Key, Object>();
-        for (final Entry<String, Object> e : allPresent.entrySet()) {
-            keysPresent.put(com.maintainer.data.provider.Key.fromString(e.getKey()), e.getValue());
-        }
-
-        return keysPresent;
+//        final List<String> stringKeys = getStringKeys(keys);
+//
+//        final ImmutableMap<String, Object> allPresent = cache.getAllPresent(stringKeys);
+//
+//        final Map<com.maintainer.data.provider.Key, Object> keysPresent = new LinkedHashMap<com.maintainer.data.provider.Key, Object>();
+//        for (final Entry<String, Object> e : allPresent.entrySet()) {
+//            keysPresent.put(com.maintainer.data.provider.Key.fromString(e.getKey()), e.getValue());
+//        }
+//
+//        return keysPresent;
+        return Collections.emptyMap();
     }
 
     private List<String> getStringKeys(final Collection<com.maintainer.data.provider.Key> keys) {
@@ -1083,7 +1088,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     protected void invalidateLocalCache(final com.maintainer.data.provider.Key key) {
         if (local) {
-            cache.invalidate(key.toString());
+//            cache.invalidate(key.toString());
         }
     }
 
