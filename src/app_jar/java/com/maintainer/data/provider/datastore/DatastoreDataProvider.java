@@ -129,6 +129,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(posted);
         target.setKey(nobodyelsesKey);
         target.setId(getEncodedKeyString(nobodyelsesKey));
+        target.setIdentity(nobodyelsesKey.getId());
 
         invalidateCached(nobodyelsesKey);
 
@@ -405,26 +406,28 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             nobodyelsesKey.setKind(kind);
 
             obj.setKey(nobodyelsesKey);
+            obj.setIdentity(nobodyelsesKey.getId());
             obj.setId(getEncodedKeyString(nobodyelsesKey));
 
-            if (key.getParent() != null) {
-                final Autocreate autocreate = obj.getClass().getAnnotation(Autocreate.class);
-                if (autocreate != null && !Autocreate.EMPTY.equals(autocreate.parent())) {
-                    final Field field = Utils.getField(obj, autocreate.parent());
-                    field.setAccessible(true);
+            final Autocreate autocreate = obj.getClass().getAnnotation(Autocreate.class);
+            if (autocreate != null) {
+                if (!Autocreate.EMPTY.equals(autocreate.parent())) {
+                    if (key.getParent() != null) {
+                        final Field field = Utils.getField(obj, autocreate.parent());
+                        field.setAccessible(true);
 
-                    EntityImpl parent = null;
-                    final Autocreate fieldAutocreate = field.getAnnotation(Autocreate.class);
-                    if (fieldAutocreate != null && fieldAutocreate.keysOnly()) {
-                        parent = getKeyedOnly(nobodyelsesKey.getParent());
-                    } else {
-                        parent = (EntityImpl) get(nobodyelsesKey.getParent());
+                        EntityImpl parent = null;
+                        final Autocreate fieldAutocreate = field.getAnnotation(Autocreate.class);
+                        if (fieldAutocreate != null && fieldAutocreate.keysOnly()) {
+                            parent = getKeyedOnly(nobodyelsesKey.getParent());
+                        } else {
+                            parent = (EntityImpl) get(nobodyelsesKey.getParent());
+                        }
+                        field.set(obj, parent);
+                        obj.setParent(parent);
                     }
-                    field.set(obj, parent);
-                    obj.setParent(parent);
                 }
             }
-
         } catch (final Exception e) {
             throw new RuntimeException(e);
         }

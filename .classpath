@@ -9,8 +9,8 @@
 	<classpathentry kind="lib" path="lib/runtime/log4j-1.2.16.jar"/>
 	<classpathentry kind="lib" path="lib/runtime/hibernate-jpa-2.0-api-1.0.1.Final.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
-	<classpathentry kind="lib" path="/home/policy/Downloads/workspace/tools/appengine-java-sdk-1.9.25/lib/testing/appengine-testing.jar"/>
-	<classpathentry kind="lib" path="/home/policy/Downloads/workspace/tools/appengine-java-sdk-1.9.25/lib/impl/appengine-api.jar"/>
 	<classpathentry kind="lib" path="lib/runtime/guava-18.0.jar"/>
+	<classpathentry kind="lib" path="/Users/josephc/Documents/workspace/tools/appengine-java-sdk-1.9.26/lib/testing/appengine-testing.jar"/>
+	<classpathentry kind="lib" path="/Users/josephc/Documents/workspace/tools/appengine-java-sdk-1.9.26/lib/impl/appengine-api.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
