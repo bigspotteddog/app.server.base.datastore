@@ -3,6 +3,7 @@ package com.maintainer.data.provider.datastore;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -216,5 +217,24 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    @Override
+    protected ArrayList<Field> getFields(final Object target) {
+        final Map<String, Field> fieldMap = new LinkedHashMap<String, Field>();
+        Class<?> clazz = target.getClass();
+        while (clazz != null) {
+            final Field[] fields2 = clazz.getDeclaredFields();
+            for (int i = 0; i < fields2.length; i++) {
+                final Field f = fields2[i];
+                final String name = f.getName();
+
+                if (!fieldMap.containsKey(name)) {
+                    fieldMap.put(name, f);
+                }
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return new ArrayList<Field>(fieldMap.values());
     }
 }
