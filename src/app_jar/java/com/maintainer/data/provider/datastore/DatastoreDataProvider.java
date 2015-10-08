@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,12 +42,13 @@ import com.google.appengine.api.datastore.Text;
 import com.google.appengine.api.memcache.MemcacheService;
 import com.google.appengine.api.memcache.MemcacheServiceFactory;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.EntityImpl;
 import com.maintainer.data.model.NotIndexed;
 import com.maintainer.data.model.NotStored;
+import com.maintainer.data.provider.DataProvider;
+import com.maintainer.data.provider.DataProviderFactory;
 import com.maintainer.data.provider.Filter;
 import com.maintainer.data.provider.Query;
 import com.maintainer.util.FieldSortComparator;
@@ -95,7 +95,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         final Key k = createDatastoreKey(key);
         try {
             final Entity entity = getEntity(k);
-            final T fetched = fromEntity(key.getKind(), entity);
+            Class<?> kind = getClazz(k);
+            final T fetched = getTarget(kind, entity);
             putCache(key, fetched);
             return fetched;
         } catch (final EntityNotFoundException e) {
@@ -184,14 +185,17 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     public List<T> find(final Query query) throws Exception {
         final DatastoreService datastore = getDatastore();
 
+        Class<?> kind = query.getKind();
         if (query.getKey() != null) {
             try {
                 final Key key = createDatastoreKey(query.getKey());
                 final Entity entity = datastore.get(key);
-                final T fromEntity = fromEntity(query.getKind(), entity);
+
+                final T target = getTarget(kind, entity);
+
                 final ResultListImpl<T> list = new ResultListImpl<T>();
-                list.add(fromEntity);
-                putCache(fromEntity.getKey(), fromEntity);
+                list.add(target);
+                putCache(target.getKey(), target);
                 return list;
             } catch (final EntityNotFoundException e) {
                 e.printStackTrace();
@@ -239,7 +243,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         if (!list.isEmpty()) {
             String order = query.getOrder();
             if (!Utils.isEmpty(order)) {
-                Collections.sort(list, new FieldSortComparator(query.getKind(), order));
+                Collections.sort(list, new FieldSortComparator(kind, order));
             }
 
             boolean hasMoreRecords = false;
@@ -805,7 +809,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             final Key key = e.getKey();
             final Entity entity = e.getValue();
 
-            final T target = fromEntity(getClazz(key), entity);
+            Class<?> kind = getClazz(key);
+            final T target = getTarget(kind, entity);
+
             list.add(target);
             needsToBeCachedMap.put(target.getKey(), target);
         }
@@ -900,7 +906,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                     entity.setProperty("cursor", cursor);
                 }
 
-                final T target = fromEntity(getClazz(key), entity);
+                Class<?> kind = getClazz(key);
+                final T target = getTarget(kind, entity);
+
                 map.put(target.getKey(), target);
                 needsToBeCachedMap.put(target.getKey(), target);
             }
@@ -923,6 +931,13 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         list.setRemovedCursors(removedCursors);
 
         return list;
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    protected T getTarget(Class<?> kind, final Entity entity) throws Exception {
+        DataProvider<?> dataProvider = DataProviderFactory.instance().getDataProvider(kind);
+        final T target = (T) ((DatastoreDataProvider) dataProvider).fromEntity(kind, entity);
+        return target;
     }
 
     protected boolean setKeysOnly(final com.google.appengine.api.datastore.Query q) {

@@ -1,5 +1,6 @@
 package com.maintainer.data.provider.datastore;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -12,8 +13,11 @@ import org.apache.log4j.Logger;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.Text;
+import com.google.gson.Gson;
+import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.MapEntityImpl;
+import com.maintainer.util.Utils;
 
 public class MapDatastoreDataProvider<T extends MapEntityImpl> extends DatastoreDataProvider<T> {
     private static final Logger log = Logger.getLogger(MapDatastoreDataProvider.class.getName());
@@ -27,7 +31,12 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             final Map<String, Object> properties = entity.getProperties();
             for (final Entry<String, Object> e : properties.entrySet()) {
                 final String field = e.getKey();
-                if ("id".equals(field) || "created".equals(field) || "modified".equals(field)) {
+
+                switch (field) {
+                case "id":
+                case "created":
+                case "modified":
+                case "identity":
                     continue;
                 }
 
@@ -74,7 +83,12 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
         for (final Entry<String, Object> entry : target.entrySet()) {
             final String field = entry.getKey();
-            if ("id".equals(field) || "created".equals(field) || "modified".equals(field)) {
+
+            switch (field) {
+            case "id":
+            case "created":
+            case "modified":
+            case "identity":
                 continue;
             }
 
@@ -84,7 +98,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 if (value != null) {
                     if (EntityBase.class.isAssignableFrom(value.getClass())) {
                         final EntityBase base = (EntityBase) value;
-                        value = createDatastoreKey(getKindName(base.getClass()), base.getId());
+                        value = createDatastoreKey(base.getKey());
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
                         final List<Object> list = new ArrayList<Object>((Collection<Object>) value);
                         value = list;
@@ -94,7 +108,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                             final Object o = iterator.next();
                             if (EntityBase.class.isAssignableFrom(o.getClass())) {
                                 final EntityBase base = (EntityBase) o;
-                                final Key key = createDatastoreKey(getKindName(base.getClass()), base.getId());
+                                final Key key = createDatastoreKey(base.getKey());
                                 iterator.set(key);
                             }
                         }
@@ -120,5 +134,85 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         }
 
         return entity;
+    }
+
+    @Override
+    protected void autocreateFromField(final EntityBase target, final T existing, final Field f) {
+        f.setAccessible(true);
+        final Autocreate autocreate = f.getAnnotation(Autocreate.class);
+        if (autocreate != null && !autocreate.embedded()) {
+            try {
+                MapEntityImpl mapEntityImpl = (MapEntityImpl) target;
+                String fieldName = f.getName();
+                Object value = mapEntityImpl.get(fieldName);
+                if (value != null && Map.class.isAssignableFrom(value.getClass())) {
+                    Map map = (Map) value;
+                    String keyString = (String) map.get("id");
+                    if (keyString != null) {
+                        com.maintainer.data.provider.Key key = null;
+                        try {
+                            key = com.maintainer.data.provider.Key.fromString(keyString);
+                        } catch (Exception e) {
+                            // ignored
+                        }
+
+                        if (key != null) {
+                            Class<?> kind = key.getKind();
+                            if (EntityBase.class.isAssignableFrom(kind)) {
+                                Gson gson = Utils.getGson();
+                                String json = gson.toJson(value);
+                                value = gson.fromJson(json, kind);
+                            }
+                        }
+                    }
+                }
+
+                if (value != null) {
+                    if (EntityBase.class.isAssignableFrom(value.getClass())) {
+                        final EntityBase entity = (EntityBase) value;
+                        mapEntityImpl.set(fieldName, createOrUpdate(entity, autocreate));
+                    } else if (Collection.class.isAssignableFrom(value.getClass())) {
+                        final List<Object> list = new ArrayList<Object>();
+                        if (value != null) {
+                            list.addAll((Collection<Object>) value);
+                        }
+
+                        List<Object> removeThese = null;
+                        if (existing != null) {
+                            Collection<Object> collection = (Collection<Object>) f.get(existing);
+                            if (collection != null) {
+                                removeThese = new ArrayList<Object>(collection);
+                            }
+                        }
+
+                        final ListIterator<Object> iterator = list.listIterator();
+                        while(iterator.hasNext()) {
+                            final Object o = iterator.next();
+                            if (o == null) {
+                                continue;
+                            }
+                            if (EntityBase.class.isAssignableFrom(o.getClass())) {
+                                final EntityBase entity = (EntityBase) o;
+                                iterator.set(createOrUpdate(entity, autocreate));
+                            }
+                        }
+
+                        if (removeThese != null && !removeThese.isEmpty()) {
+                            removeThese.removeAll(list);
+                            for (final Object object : removeThese) {
+                                delete(object, autocreate);
+                            }
+                        }
+                    }
+                } else {
+                    if (existing != null) {
+                        final Object object = f.get(existing);
+                        delete(object, autocreate);
+                    }
+                }
+            } catch (final Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }
