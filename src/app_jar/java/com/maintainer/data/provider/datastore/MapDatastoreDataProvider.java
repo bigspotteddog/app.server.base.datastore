@@ -37,6 +37,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 case "created":
                 case "modified":
                 case "identity":
+                case "properties":
                     continue;
                 }
 
@@ -89,6 +90,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             case "created":
             case "modified":
             case "identity":
+            case "properties":
                 continue;
             }
 
