@@ -18,6 +18,7 @@ import com.google.gson.Gson;
 import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.MapEntityImpl;
+import com.maintainer.util.MyField;
 import com.maintainer.util.Utils;
 
 public class MapDatastoreDataProvider<T extends MapEntityImpl> extends DatastoreDataProvider<T> {
@@ -140,7 +141,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
-    protected void autocreateFromField(final EntityBase target, final T existing, final Field f) {
+    protected void autocreateFromField(final EntityBase target, final T existing, final MyField f) {
         f.setAccessible(true);
         final Autocreate autocreate = f.getAnnotation(Autocreate.class);
         if (autocreate != null && !autocreate.embedded()) {
@@ -220,8 +221,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
-    protected ArrayList<Field> getFields(final Object target) {
-        final Map<String, Field> fieldMap = new LinkedHashMap<String, Field>();
+    protected ArrayList<MyField> getFields(final Object target, boolean isRecurse) {
+        final Map<String, MyField> fieldMap = new LinkedHashMap<String, MyField>();
         Class<?> clazz = target.getClass();
         while (clazz != null) {
             final Field[] fields2 = clazz.getDeclaredFields();
@@ -229,12 +230,18 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 final Field f = fields2[i];
                 final String name = f.getName();
 
+                final MyField myField = new MyField(f);
                 if (!fieldMap.containsKey(name)) {
-                    fieldMap.put(name, f);
+                    fieldMap.put(name, myField);
                 }
             }
+
+            if (!isRecurse) {
+                break;
+            }
+
             clazz = clazz.getSuperclass();
         }
-        return new ArrayList<Field>(fieldMap.values());
+        return new ArrayList<MyField>(fieldMap.values());
     }
 }
