@@ -15,7 +15,6 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.Text;
 import com.google.gson.Gson;
-import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.MapEntityImpl;
 import com.maintainer.util.MyField;
@@ -143,8 +142,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     @Override
     protected void autocreateFromField(final EntityBase target, final T existing, final MyField f) {
         f.setAccessible(true);
-        final Autocreate autocreate = f.getAnnotation(Autocreate.class);
-        if (autocreate != null && !autocreate.embedded()) {
+        if (f.isAutocreate() && !f.embedded()) {
             try {
                 MapEntityImpl mapEntityImpl = (MapEntityImpl) target;
                 String fieldName = f.getName();
@@ -174,7 +172,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 if (value != null) {
                     if (EntityBase.class.isAssignableFrom(value.getClass())) {
                         final EntityBase entity = (EntityBase) value;
-                        mapEntityImpl.set(fieldName, createOrUpdate(entity, autocreate));
+                        mapEntityImpl.set(fieldName, createOrUpdate(entity, f.readonly(), f.create(), f.update()));
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
                         final List<Object> list = new ArrayList<Object>();
                         if (value != null) {
@@ -197,21 +195,21 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                             }
                             if (EntityBase.class.isAssignableFrom(o.getClass())) {
                                 final EntityBase entity = (EntityBase) o;
-                                iterator.set(createOrUpdate(entity, autocreate));
+                                iterator.set(createOrUpdate(entity, f.readonly(), f.create(), f.update()));
                             }
                         }
 
                         if (removeThese != null && !removeThese.isEmpty()) {
                             removeThese.removeAll(list);
                             for (final Object object : removeThese) {
-                                delete(object, autocreate);
+                                delete(object, f.embedded(), f.readonly(), f.delete());
                             }
                         }
                     }
                 } else {
                     if (existing != null) {
                         final Object object = f.get(existing);
-                        delete(object, autocreate);
+                        delete(object, f.embedded(), f.readonly(), f.delete());
                     }
                 }
             } catch (final Exception e) {
@@ -230,7 +228,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 final Field f = fields2[i];
                 final String name = f.getName();
 
-                final MyField myField = new MyField(f);
+                final MyField myField = new MyField(name, f.getType());
                 if (!fieldMap.containsKey(name)) {
                     fieldMap.put(name, myField);
                 }
