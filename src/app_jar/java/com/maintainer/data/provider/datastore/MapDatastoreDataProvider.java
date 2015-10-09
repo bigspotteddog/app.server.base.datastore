@@ -1,9 +1,7 @@
 package com.maintainer.data.provider.datastore;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -17,7 +15,10 @@ import com.google.appengine.api.datastore.Text;
 import com.google.gson.Gson;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.MapEntityImpl;
-import com.maintainer.util.MyField;
+import com.maintainer.data.model.MyClass;
+import com.maintainer.data.model.MyField;
+import com.maintainer.data.provider.DataProvider;
+import com.maintainer.data.provider.DataProviderFactory;
 import com.maintainer.util.Utils;
 
 public class MapDatastoreDataProvider<T extends MapEntityImpl> extends DatastoreDataProvider<T> {
@@ -83,10 +84,12 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
         entity = super.toEntity(entity, target);
 
-        for (final Entry<String, Object> entry : target.entrySet()) {
-            final String field = entry.getKey();
+        List<MyField> fields = getFields(target);
 
-            switch (field) {
+        for (MyField field : fields) {
+
+            String fieldName = field.getName();
+            switch (fieldName) {
             case "id":
             case "created":
             case "modified":
@@ -95,7 +98,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 continue;
             }
 
-            Object value = entry.getValue();
+            Object value = target.get(fieldName);
 
             try {
                 if (value != null) {
@@ -130,9 +133,9 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
             final boolean indexed = target.isIndexed(field);
             if (indexed) {
-                entity.setProperty(field, value);
+                entity.setProperty(fieldName, value);
             } else {
-                entity.setUnindexedProperty(field, value);
+                entity.setUnindexedProperty(fieldName, value);
             }
         }
 
@@ -218,28 +221,57 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    protected ArrayList<MyField> getFields(final Object target, boolean isRecurse) {
-        final Map<String, MyField> fieldMap = new LinkedHashMap<String, MyField>();
+    protected Object getFieldValue(final Object obj, final MyField f) throws IllegalAccessException {
+        T t = (T) obj;
+        final Object value = t.get(f.getName());
+        return value;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    protected void setFieldValue(final Object obj, final MyField f, final Object value) throws IllegalAccessException {
+        T t = (T) obj;
+        t.set(f.getName(), value);
+    }
+
+    @Override
+    protected List<MyField> getFields(final Object target, boolean isRecurse) throws Exception {
+        DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
+
         Class<?> clazz = target.getClass();
-        while (clazz != null) {
-            final Field[] fields2 = clazz.getDeclaredFields();
-            for (int i = 0; i < fields2.length; i++) {
-                final Field f = fields2[i];
-                final String name = f.getName();
+        String className = clazz.getName();
 
-                final MyField myField = new MyField(name, f.getType());
-                if (!fieldMap.containsKey(name)) {
-                    fieldMap.put(name, myField);
-                }
+        com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, className);
+        MyClass myClass = myClassDataProvider.get(key);
+        if (myClass == null) return super.getFields(target, isRecurse);
+
+        return myClass.getFields();
+    }
+
+    @Override
+    public T fromJson(Class<?> kind, String json) throws Exception {
+        T obj = super.fromJson(kind, json);
+        Gson gson = Utils.getGson();
+
+        Map<String, Object> map = gson.fromJson(json, Utils.getItemType());
+
+        List<MyField> fields = getFields(obj);
+        for (MyField field : fields) {
+            Class<?> type = field.getType();
+            Object value = map.get(field.getName());
+
+            if (EntityBase.class.isAssignableFrom(type)) {
+                String json2 = gson.toJson(value);
+                DataProvider<?> dataProvider = DataProviderFactory.instance().getDataProvider(type);
+                value = dataProvider.fromJson(type, json2);
+                setFieldValue(obj, field, value);
+            } else {
+                setFieldValue(obj, field, value);
             }
-
-            if (!isRecurse) {
-                break;
-            }
-
-            clazz = clazz.getSuperclass();
         }
-        return new ArrayList<MyField>(fieldMap.values());
+
+        return obj;
     }
 }

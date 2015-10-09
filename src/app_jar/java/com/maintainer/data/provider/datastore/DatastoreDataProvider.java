@@ -475,7 +475,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         if (entity == null) {
             final Class<? extends EntityBase> clazz = target.getClass();
-            final Autocreate annotation = clazz.getAnnotation(Autocreate.class);
+            final Autocreate annotation = getClassAutocreate(clazz);
 
             EntityBase parent = target.getParent();
             if (annotation != null && !Autocreate.EMPTY.equals(annotation.parent())) {
@@ -585,6 +585,20 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         }
 
         return entity;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Autocreate getClassAutocreate(final Class<? extends EntityBase> clazz) {
+        Class<? extends EntityBase> class1 = clazz;
+
+        while(class1 != null) {
+            Autocreate annotation = class1.getAnnotation(Autocreate.class);
+            if (annotation != null) {
+                return annotation;
+            }
+            class1 = (Class<? extends EntityBase>) class1.getSuperclass();
+        }
+        return null;
     }
 
     private Entity newEntity(final Key key) {
