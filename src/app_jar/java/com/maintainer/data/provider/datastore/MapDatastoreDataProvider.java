@@ -268,7 +268,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 value = dataProvider.fromJson(type, json2);
                 setFieldValue(obj, field, value);
             } else {
-                setFieldValue(obj, field, value);
+                setFieldValue(obj, field, Utils.convert(value, type));
             }
         }
 
