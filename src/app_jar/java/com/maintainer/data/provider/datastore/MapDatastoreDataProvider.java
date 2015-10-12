@@ -223,7 +223,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
     @SuppressWarnings("unchecked")
     @Override
-    protected Object getFieldValue(final Object obj, final MyField f) throws IllegalAccessException {
+    public Object getFieldValue(final Object obj, final MyField f) throws IllegalAccessException {
         T t = (T) obj;
         final Object value = t.get(f.getName());
         return value;
@@ -231,17 +231,17 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
     @SuppressWarnings("unchecked")
     @Override
-    protected void setFieldValue(final Object obj, final MyField f, final Object value) throws IllegalAccessException {
+    public void setFieldValue(final Object obj, final MyField f, final Object value) throws IllegalAccessException {
         T t = (T) obj;
         t.set(f.getName(), value);
     }
 
     @Override
-    protected List<MyField> getFields(final Object target, boolean isRecurse) throws Exception {
+    public List<MyField> getFields(final Object target, boolean isRecurse) throws Exception {
         DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
 
         Class<?> clazz = target.getClass();
-        String className = clazz.getName();
+        String className = com.maintainer.data.provider.Key.getKindName(clazz);
 
         com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, className);
         MyClass myClass = myClassDataProvider.get(key);

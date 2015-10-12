@@ -45,6 +45,8 @@ import com.google.common.base.Strings;
 import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.EntityImpl;
+import com.maintainer.data.model.MapEntityImpl;
+import com.maintainer.data.model.MyField;
 import com.maintainer.data.model.NotIndexed;
 import com.maintainer.data.model.NotStored;
 import com.maintainer.data.provider.DataProvider;
@@ -310,21 +312,26 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         T obj = null;
 
         try {
-            final Constructor<T> c = (Constructor<T>) kind.getDeclaredConstructor((Class[]) null);
-            c.setAccessible(true);
-            obj = c.newInstance((Object[]) null);
+            if (kind != null) {
+                final Constructor<T> c = (Constructor<T>) kind.getDeclaredConstructor((Class[]) null);
+                c.setAccessible(true);
+                obj = c.newInstance((Object[]) null);
+            } else {
+                obj = (T) new MapEntityImpl();
+            }
 
             final Map<String, Object> properties = entity.getProperties();
-            final ArrayList<Field> fields = getFields(obj);
-            for (final Field f : fields) {
-                final NotStored notStored = f.getAnnotation(NotStored.class);
+            DataProvider<T> dataProvider = (DataProvider<T>) DataProviderFactory.instance().getDataProvider(obj.getClass());
+            final List<MyField> fields = dataProvider.getFields(obj);
+            for (final MyField f : fields) {
+                final NotStored notStored = f.getNotStored();
                 if (notStored != null) {
                     continue;
                 }
 
                 f.setAccessible(true);
 
-                final Autocreate autocreate = f.getAnnotation(Autocreate.class);
+                final Autocreate autocreate = f.getAutocreate();
                 final String key = f.getName();
                 Object value = properties.get(key);
 
@@ -401,13 +408,15 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         value = new JsonString(value.toString());
                     }
 
-                    f.set(obj, value);
+                    dataProvider.setFieldValue((T) obj, f, value);
                 }
             }
 
             final Key key = entity.getKey();
             final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(key);
-            nobodyelsesKey.setKind(kind);
+            if (kind != null) {
+                nobodyelsesKey.setKind(kind);
+            }
 
             obj.setKey(nobodyelsesKey);
             obj.setIdentity(nobodyelsesKey.getId());
@@ -443,7 +452,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return Utils.getKeyedOnly(key);
     }
 
-    protected Object getEmbedded(final Field f, Object value) throws Exception {
+    protected Object getEmbedded(final MyField f, Object value) throws Exception {
         if (Text.class.isAssignableFrom(value.getClass())) {
             value = ((Text) value).getValue();
         }
@@ -473,8 +482,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     @SuppressWarnings("unchecked")
     protected Entity toEntity(Entity entity, final T target) throws Exception {
 
+        final Class<? extends EntityBase> clazz = target.getClass();
+
         if (entity == null) {
-            final Class<? extends EntityBase> clazz = target.getClass();
             final Autocreate annotation = getClassAutocreate(clazz);
 
             EntityBase parent = target.getParent();
@@ -506,10 +516,11 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             }
         }
 
-        final ArrayList<Field> fields = getFields(target);
+        DataProvider<T> dataProvider = (DataProvider<T>) DataProviderFactory.instance().getDataProvider(clazz);
+        final List<MyField> fields = dataProvider.getFields(target);
 
-        for (final Field f : fields) {
-            final NotStored notStored = f.getAnnotation(NotStored.class);
+        for (final MyField f : fields) {
+            final NotStored notStored = f.getNotStored();
             if (notStored != null) {
                 continue;
             }
@@ -517,7 +528,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             f.setAccessible(true);
             Object value = f.get(target);
 
-            final Autocreate autocreate = f.getAnnotation(Autocreate.class);
+            final Autocreate autocreate = f.getAutocreate();
 
             if (autocreate != null) {
                 if (autocreate.readonly()) {
@@ -576,7 +587,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 }
             }
 
-            final NotIndexed notIndexed = f.getAnnotation(NotIndexed.class);
+            final NotIndexed notIndexed = f.getNotIndexed();
             if (notIndexed == null) {
                 entity.setProperty(f.getName(), value);
             } else {
@@ -605,23 +616,23 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return new Entity(key);
     }
 
-    private ArrayList<Field> getFields(final T target) {
-        final Map<String, Field> fieldMap = new LinkedHashMap<String, Field>();
-        Class<?> clazz = target.getClass();
-        while (clazz != null) {
-            final Field[] fields2 = clazz.getDeclaredFields();
-            for (int i = 0; i < fields2.length; i++) {
-                final Field f = fields2[i];
-                final String name = f.getName();
-
-                if (!fieldMap.containsKey(name)) {
-                    fieldMap.put(name, f);
-                }
-            }
-            clazz = clazz.getSuperclass();
-        }
-        return new ArrayList<Field>(fieldMap.values());
-    }
+//    private ArrayList<Field> getFields(final T target) {
+//        final Map<String, Field> fieldMap = new LinkedHashMap<String, Field>();
+//        Class<?> clazz = target.getClass();
+//        while (clazz != null) {
+//            final Field[] fields2 = clazz.getDeclaredFields();
+//            for (int i = 0; i < fields2.length; i++) {
+//                final Field f = fields2[i];
+//                final String name = f.getName();
+//
+//                if (!fieldMap.containsKey(name)) {
+//                    fieldMap.put(name, f);
+//                }
+//            }
+//            clazz = clazz.getSuperclass();
+//        }
+//        return new ArrayList<Field>(fieldMap.values());
+//    }
 
     private void addFilter(final com.google.appengine.api.datastore.Query q, final String propertyName, final FilterOperator operator, Object value) {
         if (EntityImpl.class.isAssignableFrom(value.getClass())) {

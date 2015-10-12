@@ -77,7 +77,13 @@ public abstract class AbstractDatastoreDataProvider<T> extends AbstractDataProvi
             id = k.getId();
         }
 
-        final com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(class1, id);
+        com.maintainer.data.provider.Key key = null;
+
+        if (class1 != null) {
+            key = com.maintainer.data.provider.Key.create(class1, id);
+        } else {
+            key = com.maintainer.data.provider.Key.create(k.getKind(), id, null);
+        }
 
         if (k.getParent() != null) {
             key.setParent(createNobodyelsesKey(k.getParent()));
@@ -88,8 +94,13 @@ public abstract class AbstractDatastoreDataProvider<T> extends AbstractDataProvi
 
     public static Class<?> getClazz(final Key k) throws ClassNotFoundException {
         final String className = k.getKind();
-        final Class<?> class1 = Class.forName(className);
-        return class1;
+        try {
+            Class<?> class1 = Class.forName(className);
+            return class1;
+        } catch (Exception e) {
+            // Not found ignored.
+        }
+        return null;
     }
 
     public static Key createDatastoreKey(final com.maintainer.data.provider.Key k) {
