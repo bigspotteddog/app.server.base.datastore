@@ -80,6 +80,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
+    @SuppressWarnings({"unchecked"})
     protected Entity toEntity(Entity entity, final T target) throws Exception {
 
         entity = super.toEntity(entity, target);
@@ -143,6 +144,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
+    @SuppressWarnings({"rawtypes", "unchecked"})
     protected void autocreateFromField(final EntityBase target, final T existing, final MyField f) {
         f.setAccessible(true);
         if (f.isAutocreate() && !f.embedded()) {
@@ -237,6 +239,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
+    @SuppressWarnings({"unchecked"})
     public List<MyField> getFields(final Object target, boolean isRecurse) throws Exception {
         DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
 
@@ -273,5 +276,21 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         }
 
         return obj;
+    }
+
+    @Override
+    @SuppressWarnings({"unchecked"})
+    public Class<?> getClazz(final Key k) throws ClassNotFoundException {
+        Class<?> class1 = super.getClazz(k);
+        if (class1 == null) {
+            // String kind = k.getKind();
+            // DataProvider<MyClass> dataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
+            // com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, kind, null);
+            // MyClass clazz = dataProvider.get(key);
+            // if (clazz != null) {
+                class1 = MapEntityImpl.class;
+            // }
+        }
+        return class1;
     }
 }

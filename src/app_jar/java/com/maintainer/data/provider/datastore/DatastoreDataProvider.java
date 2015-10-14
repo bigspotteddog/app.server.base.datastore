@@ -321,8 +321,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             }
 
             final Map<String, Object> properties = entity.getProperties();
-            DataProvider<T> dataProvider = (DataProvider<T>) DataProviderFactory.instance().getDataProvider(obj.getClass());
-            final List<MyField> fields = dataProvider.getFields(obj);
+            final List<MyField> fields = getFields(obj);
             for (final MyField f : fields) {
                 final NotStored notStored = f.getNotStored();
                 if (notStored != null) {
@@ -408,15 +407,12 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         value = new JsonString(value.toString());
                     }
 
-                    dataProvider.setFieldValue((T) obj, f, value);
+                    setFieldValue(obj, f, value);
                 }
             }
 
             final Key key = entity.getKey();
             final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(key);
-            if (kind != null) {
-                nobodyelsesKey.setKind(kind);
-            }
 
             obj.setKey(nobodyelsesKey);
             obj.setIdentity(nobodyelsesKey.getId());
@@ -516,8 +512,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             }
         }
 
-        DataProvider<T> dataProvider = (DataProvider<T>) DataProviderFactory.instance().getDataProvider(clazz);
-        final List<MyField> fields = dataProvider.getFields(target);
+        final List<MyField> fields = getFields(target);
 
         for (final MyField f : fields) {
             final NotStored notStored = f.getNotStored();
@@ -615,24 +610,6 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     private Entity newEntity(final Key key) {
         return new Entity(key);
     }
-
-//    private ArrayList<Field> getFields(final T target) {
-//        final Map<String, Field> fieldMap = new LinkedHashMap<String, Field>();
-//        Class<?> clazz = target.getClass();
-//        while (clazz != null) {
-//            final Field[] fields2 = clazz.getDeclaredFields();
-//            for (int i = 0; i < fields2.length; i++) {
-//                final Field f = fields2[i];
-//                final String name = f.getName();
-//
-//                if (!fieldMap.containsKey(name)) {
-//                    fieldMap.put(name, f);
-//                }
-//            }
-//            clazz = clazz.getSuperclass();
-//        }
-//        return new ArrayList<Field>(fieldMap.values());
-//    }
 
     private void addFilter(final com.google.appengine.api.datastore.Query q, final String propertyName, final FilterOperator operator, Object value) {
         if (EntityImpl.class.isAssignableFrom(value.getClass())) {
@@ -1232,7 +1209,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         final Key datastoreKey = entity.getKey();
         final Key parent = datastoreKey.getParent();
         if (parent != null) {
-            final com.maintainer.data.provider.Key key = DatastoreDataProvider.createNobodyelsesKey(parent);
+            final com.maintainer.data.provider.Key key = createNobodyelsesKey(parent);
             final String parentName = key.asString();
             entity.setUnindexedProperty("owner", parentName);
         }
