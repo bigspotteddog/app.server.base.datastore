@@ -122,7 +122,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     public T post(final T target) throws Exception {
         autocreate(target);
 
-        target.setCreated(new Date());
+        MyField f = new MyField(target.getClass().getField("created"));
+        setFieldValue(target, f, new Date());
 
         final Entity entity = toEntity(null, target);
 
@@ -159,7 +160,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         autocreate(target);
 
-        target.setModified(new Date());
+        MyField f = new MyField(target.getClass().getField("modified"));
+        setFieldValue(target, f, new Date());
 
         Entity entity = getEntity(createDatastoreKey(nobodyelsesKey));
         entity = toEntity(entity, target);
