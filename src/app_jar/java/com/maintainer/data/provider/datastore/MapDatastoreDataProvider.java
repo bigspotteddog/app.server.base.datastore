@@ -38,8 +38,6 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
                 switch (field) {
                 case "id":
-                case "created":
-                case "modified":
                 case "identity":
                 case "properties":
                     continue;
@@ -94,8 +92,6 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             String fieldName = field.getName();
             switch (fieldName) {
             case "id":
-            case "created":
-            case "modified":
             case "identity":
             case "properties":
                 continue;
