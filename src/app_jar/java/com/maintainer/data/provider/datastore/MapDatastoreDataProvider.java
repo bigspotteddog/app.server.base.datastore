@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.apache.log4j.Logger;
 
@@ -241,6 +243,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     @Override
     @SuppressWarnings({"unchecked"})
     public List<MyField> getFields(final Object target, boolean isRecurse) throws Exception {
+        Set<MyField> set = new HashSet<MyField>(super.getFields(target, isRecurse));
+
         DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
 
         Class<?> clazz = target.getClass();
@@ -248,9 +252,15 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
         com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, className);
         MyClass myClass = myClassDataProvider.get(key);
-        if (myClass == null) return super.getFields(target, isRecurse);
+        if (myClass != null) {
+            List<MyField> fields = myClass.getFields();
+            for (MyField f : fields) {
+                set.remove(f);
+                set.add(f);
+            }
+        }
 
-        return myClass.getFields();
+        return new ArrayList<MyField>(set);
     }
 
     @Override
