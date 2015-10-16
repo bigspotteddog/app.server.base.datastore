@@ -2,12 +2,15 @@ package com.maintainer.data.provider.datastore;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Date;
+import java.math.BigDecimal;
 
 import org.apache.log4j.Logger;
 
@@ -16,6 +19,7 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.Text;
 import com.google.gson.Gson;
 import com.maintainer.data.model.EntityBase;
+import com.maintainer.data.model.EntityImpl;
 import com.maintainer.data.model.MapEntityImpl;
 import com.maintainer.data.model.MyClass;
 import com.maintainer.data.model.MyField;
@@ -49,8 +53,12 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     if (Key.class.isAssignableFrom(value.getClass())) {
                         final Key k = (Key) value;
                         final String className = k.getKind();
-                        final Class<?> class1 = Class.forName(className);
-                        value = get(com.maintainer.data.provider.Key.create(class1, k.getId()));
+                        try {
+                            final Class<?> class1 = Class.forName(className);
+                            value = get(com.maintainer.data.provider.Key.create(class1, k.getId()));
+                        } catch (Exception e2) {
+                            value = get(com.maintainer.data.provider.Key.create(className, k.getId(), null));
+                        }
                     } else if (Text.class.isAssignableFrom(value.getClass())) {
                         value = ((Text) value).getValue();
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
@@ -150,8 +158,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 MapEntityImpl mapEntityImpl = (MapEntityImpl) target;
                 String fieldName = f.getName();
                 Object value = mapEntityImpl.get(fieldName);
-                if (value != null && Map.class.isAssignableFrom(value.getClass())) {
-                    Map map = (Map) value;
+                if (value != null && MapEntityImpl.class.isAssignableFrom(value.getClass())) {
+                    MapEntityImpl map = (MapEntityImpl) value;
                     String keyString = (String) map.get("id");
                     if (keyString != null) {
                         com.maintainer.data.provider.Key key = null;
@@ -246,17 +254,25 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         Class<?> clazz = target.getClass();
         String className = com.maintainer.data.provider.Key.getKindName(clazz);
 
-        com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, className);
-        MyClass myClass = myClassDataProvider.get(key);
-        if (myClass != null) {
-            List<MyField> fields = myClass.getFields();
-            for (MyField f : fields) {
-                set.remove(f);
-                set.add(f);
-            }
+        List<MyField> fields = getFields(className);
+        for (MyField f : fields) {
+            set.remove(f);
+            set.add(f);
         }
 
         return new ArrayList<MyField>(set);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<MyField> getFields(final String className) throws Exception {
+        com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, className);
+        DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
+        MyClass myClass = myClassDataProvider.get(key);
+        if (myClass != null) {
+            List<MyField> fields = myClass.getFields();
+            return fields;
+        }
+        return Collections.<MyField>emptyList();
     }
 
     @Override
@@ -267,17 +283,42 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         Map<String, Object> map = gson.fromJson(json, Utils.getItemType());
 
         List<MyField> fields = getFields(obj);
+        obj = fromFields(obj, fields, map);
+        return obj;
+    }
+
+    @SuppressWarnings({"unchecked"})
+    public T fromFields(final T obj, final List<MyField> fields, Map<String, Object> map) throws Exception {
+        Gson gson = Utils.getGson();
+
         for (MyField field : fields) {
             Class<?> type = field.getType();
             Object value = map.get(field.getName());
 
-            if (EntityBase.class.isAssignableFrom(type)) {
-                String json2 = gson.toJson(value);
-                DataProvider<?> dataProvider = DataProviderFactory.instance().getDataProvider(type);
-                value = dataProvider.fromJson(type, json2);
-                setFieldValue(obj, field, value);
+            if (value != null && MapEntityImpl.class.isAssignableFrom(type)) {
+                String json = gson.toJson(value);
+                T obj2 = super.fromJson(MapEntityImpl.class, json);
+
+                String className = field.getMyType().getClassName();
+                List<MyField> fields2 = getFields(className);
+                value = fromFields(obj2, fields2, (Map<String, Object>) value);
+            }
+
+            if (value == null) {
+                setFieldValue(obj, field, null);
             } else {
-                setFieldValue(obj, field, Utils.convert(value, type));
+                if (MapEntityImpl.class.isAssignableFrom(type)) {
+                    setFieldValue(obj, field, value);
+                } else if (EntityBase.class.isAssignableFrom(type)) {
+                    String json2 = gson.toJson(value);
+                    DataProvider<?> dataProvider = DataProviderFactory.instance().getDataProvider(type);
+                    value = dataProvider.fromJson(type, json2);
+                    setFieldValue(obj, field, value);
+                } else if (Date.class.isAssignableFrom(type)) {
+                    setFieldValue(obj, field, new Date(new BigDecimal(value.toString()).longValue()));
+                } else {
+                    setFieldValue(obj, field, Utils.convert(value, type));
+                }
             }
         }
 
