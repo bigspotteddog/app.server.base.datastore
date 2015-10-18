@@ -315,7 +315,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     value = dataProvider.fromJson(type, json2);
                     setFieldValue(obj, field, value);
                 } else if (Date.class.isAssignableFrom(type)) {
-                    setFieldValue(obj, field, new Date(new BigDecimal(value.toString()).longValue()));
+                    setFieldValue(obj, field, Utils.convertToDate(value.toString()));
                 } else {
                     setFieldValue(obj, field, Utils.convert(value, type));
                 }

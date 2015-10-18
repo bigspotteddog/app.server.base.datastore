@@ -139,7 +139,6 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(posted);
         target.setKey(nobodyelsesKey);
         target.setId(getEncodedKeyString(nobodyelsesKey));
-        target.setIdentity(nobodyelsesKey.getId());
 
         invalidateCached(nobodyelsesKey);
 
@@ -517,7 +516,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                     key = createDatastoreKey(parent, kindName, id);
                     final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(key);
                     target.setId(getEncodedKeyString(nobodyelsesKey));
+                    target.setIdentity(id);
                     entity = newEntity(key);
+                    entity.setUnindexedProperty("identity", id);
                 } else {
                     entity = newEntity(parent, kindName);
                 }
