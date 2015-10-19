@@ -299,7 +299,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 String json = gson.toJson(value);
                 T obj2 = super.fromJson(MapEntityImpl.class, json);
 
-                String className = field.getMyType().getClassName();
+                String className = field.getMyClass().getName();
                 List<MyField> fields2 = getFields(className);
                 value = fromFields(obj2, fields2, (Map<String, Object>) value);
             }
