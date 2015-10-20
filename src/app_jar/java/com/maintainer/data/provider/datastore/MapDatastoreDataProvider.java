@@ -298,7 +298,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             if (value != null) {
                 Class<?> valueType = value.getClass();
 
-                if (MapEntityImpl.class.isAssignableFrom(valueType)) {
+                if (MapEntityImpl.class.isAssignableFrom(type)) {
                     String json = gson.toJson(value);
                     T obj2 = super.fromJson(MapEntityImpl.class, json);
 
