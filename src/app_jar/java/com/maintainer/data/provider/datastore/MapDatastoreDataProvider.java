@@ -252,7 +252,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
 
         Class<?> clazz = target.getClass();
-        String className = com.maintainer.data.provider.Key.getKindName(clazz);
+        String className = getKindName(clazz);
 
         List<MyField> fields = getFields(className);
         for (MyField f : fields) {
@@ -295,13 +295,33 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             Class<?> type = field.getType();
             Object value = map.get(field.getName());
 
-            if (value != null && MapEntityImpl.class.isAssignableFrom(type)) {
-                String json = gson.toJson(value);
-                T obj2 = super.fromJson(MapEntityImpl.class, json);
+            if (value != null) {
+                Class<?> valueType = value.getClass();
 
-                String className = field.getMyClass().getName();
-                List<MyField> fields2 = getFields(className);
-                value = fromFields(obj2, fields2, (Map<String, Object>) value);
+                if (MapEntityImpl.class.isAssignableFrom(valueType)) {
+                    String json = gson.toJson(value);
+                    T obj2 = super.fromJson(MapEntityImpl.class, json);
+
+                    String className = field.getMyClass().getName();
+                    List<MyField> fields2 = getFields(className);
+                    value = fromFields(obj2, fields2, (Map<String, Object>) value);
+                } else if (Collection.class.isAssignableFrom(valueType)) {
+                    String className = field.getMyClass().getName();
+                    List<MyField> fields2 = getFields(className);
+
+                    List<Object> list = new ArrayList<Object>((Collection) value);
+                    List<Object> list2 = new ArrayList<Object>();
+
+                    for (Object o : list) {
+                        String json = gson.toJson(o);
+                        T obj2 = super.fromJson(MapEntityImpl.class, json);
+                        Map<String, Object> map2 = gson.fromJson(json, Utils.getItemType());
+                        obj2 = fromFields(obj2, fields2, map2);
+                        list2.add(obj2);
+                    }
+
+                    value = list2;
+                }
             }
 
             if (value == null) {
@@ -315,7 +335,11 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     value = dataProvider.fromJson(type, json2);
                     setFieldValue(obj, field, value);
                 } else if (Date.class.isAssignableFrom(type)) {
-                    setFieldValue(obj, field, Utils.convertToDate(value.toString()));
+                    if (String.class == value.getClass()) {
+                        setFieldValue(obj, field, Utils.convertToDate(value.toString()));
+                    } else {
+                        setFieldValue(obj, field, new Date(new BigDecimal(value.toString()).longValue()));
+                    }
                 } else {
                     setFieldValue(obj, field, Utils.convert(value, type));
                 }

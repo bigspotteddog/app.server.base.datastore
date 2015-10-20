@@ -46,9 +46,12 @@ import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.EntityImpl;
 import com.maintainer.data.model.MapEntityImpl;
+import com.maintainer.data.model.MyClass;
 import com.maintainer.data.model.MyField;
 import com.maintainer.data.model.NotIndexed;
 import com.maintainer.data.model.NotStored;
+import com.maintainer.data.model.Resource;
+import com.maintainer.data.model.ThreadLocalInfo;
 import com.maintainer.data.provider.DataProvider;
 import com.maintainer.data.provider.DataProviderFactory;
 import com.maintainer.data.provider.Filter;
@@ -85,6 +88,17 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     @SuppressWarnings("unchecked")
     @Override
     public T get(final com.maintainer.data.provider.Key key) throws Exception {
+        ThreadLocalCache threadLocalCache = ThreadLocalCache.get();
+        Object obj = threadLocalCache.get(key);
+        if (obj == null) {
+            threadLocalCache.put(key, new Integer(1));
+        } else {
+            if (Integer.class.equals(obj.getClass())) {
+                int count = (int) obj;
+                log.severe("Cyclic redundancy detected for key: " + key.asString());
+            }
+        }
+
         final T cached = (T) getCached(key);
         if (cached != null) {
             if (cached.getKey() == null) {
@@ -100,6 +114,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             Class<?> kind = getClazz(k);
             final T fetched = getTarget(kind, entity);
             putCache(key, fetched);
+
+            threadLocalCache.put(key, fetched);
+
             return fetched;
         } catch (final EntityNotFoundException e) {
             //ignore, it will just be null
@@ -142,6 +159,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         invalidateCached(nobodyelsesKey);
 
+        ThreadLocalCache.get().put(nobodyelsesKey, target);
+
         return target;
     }
 
@@ -152,6 +171,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             final T existing = get(nobodyelsesKey);
 
             if (checkEqual(target, existing)) {
+                ThreadLocalCache.get().put(nobodyelsesKey, target);
                 return target;
             } else {
                 // log.fine(nobodyelsesKey + " changed.");
@@ -181,6 +201,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         datastore.put(entity);
 
         invalidateCached(nobodyelsesKey);
+
+        ThreadLocalCache.get().put(nobodyelsesKey, target);
 
         return target;
     }
@@ -477,7 +499,21 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return datastore;
     }
 
-    protected String getKindName(final Class<?> clazz) {
+    @SuppressWarnings("unchecked")
+    protected String getKindName(final Class<?> clazz) throws Exception {
+        if (MapEntityImpl.class.equals(clazz)) {
+            String path = ThreadLocalInfo.getInfo().getPath();
+            String[] split = path.split("/");
+            String route = split[2];
+            DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
+            Query q = new Query(MyClass.class);
+            q.filter("route", route);
+            List<MyClass> list = myClassDataProvider.find(q);
+            if (list.size() == 1) {
+                return list.get(0).getName();
+            }
+        }
+
         return com.maintainer.data.provider.Key.getKindName(clazz);
     }
 
@@ -891,6 +927,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             for (final com.maintainer.data.provider.Key key : keysNeeded) {
                 final EntityImpl keyedOnly = getKeyedOnly(key);
                 list.add((T) keyedOnly);
+
+                ThreadLocalCache.get().put(key, keyedOnly);
             }
             list.setStartCursor(start);
             list.setEndCursor(end);
@@ -940,6 +978,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             if (o != null) {
                 o.setKey(key);
                 list.add(o);
+
+                ThreadLocalCache.get().put(key, o);
             }
         }
 
