@@ -50,7 +50,6 @@ import com.maintainer.data.model.MyClass;
 import com.maintainer.data.model.MyField;
 import com.maintainer.data.model.NotIndexed;
 import com.maintainer.data.model.NotStored;
-import com.maintainer.data.model.Resource;
 import com.maintainer.data.model.ThreadLocalInfo;
 import com.maintainer.data.provider.DataProvider;
 import com.maintainer.data.provider.DataProviderFactory;
@@ -94,8 +93,14 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             threadLocalCache.put(key, new Integer(1));
         } else {
             if (Integer.class.equals(obj.getClass())) {
-                int count = (int) obj;
                 log.severe("Cyclic redundancy detected for key: " + key.asString());
+                if (key.getKind() == null) {
+                    T keyedOnly = (T) getKeyedOnly(MapEntityImpl.class, key);
+                    return keyedOnly;
+                } else {
+                    T keyedOnly = (T) getKeyedOnly(key);
+                    return keyedOnly;
+                }
             }
         }
 
@@ -105,6 +110,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 cached.setKey(key);
             }
             // log.fine(key + " returned from cache.");
+            threadLocalCache.put(key, cached);
             return cached;
         }
 
@@ -121,6 +127,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         } catch (final EntityNotFoundException e) {
             //ignore, it will just be null
         }
+
+        threadLocalCache.remove(key);
         return null;
     }
 
@@ -477,6 +485,10 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         }
 
         return obj;
+    }
+
+    public EntityImpl getKeyedOnly(final Class<?> class1, final com.maintainer.data.provider.Key key) throws Exception {
+        return Utils.getKeyedOnly(class1, key);
     }
 
     public EntityImpl getKeyedOnly(final com.maintainer.data.provider.Key key) throws Exception {

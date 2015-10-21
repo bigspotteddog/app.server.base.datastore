@@ -1,16 +1,16 @@
 package com.maintainer.data.provider.datastore;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.HashSet;
-import java.util.Date;
-import java.math.BigDecimal;
 
 import org.apache.log4j.Logger;
 
@@ -19,7 +19,6 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.Text;
 import com.google.gson.Gson;
 import com.maintainer.data.model.EntityBase;
-import com.maintainer.data.model.EntityImpl;
 import com.maintainer.data.model.MapEntityImpl;
 import com.maintainer.data.model.MyClass;
 import com.maintainer.data.model.MyField;
@@ -52,13 +51,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 if (value != null) {
                     if (Key.class.isAssignableFrom(value.getClass())) {
                         final Key k = (Key) value;
-                        final String className = k.getKind();
-                        try {
-                            final Class<?> class1 = Class.forName(className);
-                            value = get(com.maintainer.data.provider.Key.create(class1, k.getId()));
-                        } catch (Exception e2) {
-                            value = get(com.maintainer.data.provider.Key.create(className, k.getId(), null));
-                        }
+                        com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(k);
+                        value = get(nobodyelsesKey);
                     } else if (Text.class.isAssignableFrom(value.getClass())) {
                         value = ((Text) value).getValue();
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
@@ -69,9 +63,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                             Object o = iterator.next();
                             if (Key.class.isAssignableFrom(o.getClass())) {
                                 final Key k = (Key) o;
-                                final String className = k.getKind();
-                                final Class<?> class1 = Class.forName(className);
-                                o = get(com.maintainer.data.provider.Key.create(class1, k.getId()));
+                                com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(k);
+                                o = get(nobodyelsesKey);
                                 iterator.set(o);
                             }
                         }
@@ -298,14 +291,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             if (value != null) {
                 Class<?> valueType = value.getClass();
 
-                if (MapEntityImpl.class.isAssignableFrom(type)) {
-                    String json = gson.toJson(value);
-                    T obj2 = super.fromJson(MapEntityImpl.class, json);
-
-                    String className = field.getMyClass().getName();
-                    List<MyField> fields2 = getFields(className);
-                    value = fromFields(obj2, fields2, (Map<String, Object>) value);
-                } else if (Collection.class.isAssignableFrom(valueType)) {
+                if (Collection.class.isAssignableFrom(valueType)) {
                     String className = field.getMyClass().getName();
                     List<MyField> fields2 = getFields(className);
 
@@ -321,6 +307,13 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     }
 
                     value = list2;
+                } else if (MapEntityImpl.class.isAssignableFrom(type)) {
+                    String json = gson.toJson(value);
+                    T obj2 = super.fromJson(MapEntityImpl.class, json);
+
+                    String className = field.getMyClass().getName();
+                    List<MyField> fields2 = getFields(className);
+                    value = fromFields(obj2, fields2, (Map<String, Object>) value);
                 }
             }
 

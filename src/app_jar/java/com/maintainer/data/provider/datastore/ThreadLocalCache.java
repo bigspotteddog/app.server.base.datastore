@@ -1,8 +1,9 @@
 package com.maintainer.data.provider.datastore;
 
-import com.maintainer.data.provider.Key;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
+
+import com.maintainer.data.provider.Key;
 
 public class ThreadLocalCache {
     private static final ThreadLocal<ThreadLocalCache> cache = new ThreadLocal<ThreadLocalCache>() {
@@ -27,6 +28,11 @@ public class ThreadLocalCache {
         ThreadLocalCache c = getThreadCache();
         c.getMap().remove(key);
         c.getMap().put(key, obj);
+    }
+
+    public Object remove(final Key key) {
+        ThreadLocalCache c = getThreadCache();
+        return c.getMap().remove(key);
     }
 
     public static ThreadLocalCache get() {
