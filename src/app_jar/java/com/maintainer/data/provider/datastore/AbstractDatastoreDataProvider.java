@@ -8,6 +8,7 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.Query.FilterOperator;
 import com.maintainer.data.model.EntityBase;
+import com.maintainer.data.model.MyField;
 import com.maintainer.data.provider.AbstractDataProvider;
 import com.maintainer.util.Utils;
 
@@ -148,5 +149,16 @@ public abstract class AbstractDatastoreDataProvider<T> extends AbstractDataProvi
 
     protected String getEncodedKeyString(final com.maintainer.data.provider.Key nobodyelsesKey) {
         return nobodyelsesKey.toString();
+    }
+
+    @Override
+    public MyField getField(final Class<?> clazz, final String fieldName) {
+        Map<String, MyField> map = getFieldsAsMap(clazz, true);
+        return map.get(fieldName);
+    }
+
+    @Override
+    public MyField getField(final String className, final String fieldName) {
+        return null;
     }
 }
