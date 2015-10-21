@@ -511,22 +511,28 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return datastore;
     }
 
-    @SuppressWarnings("unchecked")
     protected String getKindName(final Class<?> clazz) throws Exception {
         if (MapEntityImpl.class.equals(clazz)) {
             String path = ThreadLocalInfo.getInfo().getPath();
-            String[] split = path.split("/");
-            String route = split[2];
-            DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
-            Query q = new Query(MyClass.class);
-            q.filter("route", route);
-            List<MyClass> list = myClassDataProvider.find(q);
-            if (list.size() == 1) {
-                return list.get(0).getName();
-            }
+            MyClass myClass = getMyClassFromPath(path);
+            return myClass.getName();
         }
 
         return com.maintainer.data.provider.Key.getKindName(clazz);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected MyClass getMyClassFromPath(final String path) throws Exception {
+        String[] split = path.split("/");
+        String route = split[2];
+        DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
+        Query q = new Query(MyClass.class);
+        q.filter("route", route);
+        List<MyClass> list = myClassDataProvider.find(q);
+        if (list.size() == 1) {
+            return list.get(0);
+        }
+        return null;
     }
 
     private Entity newEntity(final EntityBase parent, final String kind) {

@@ -152,13 +152,13 @@ public abstract class AbstractDatastoreDataProvider<T> extends AbstractDataProvi
     }
 
     @Override
-    public MyField getField(final Class<?> clazz, final String fieldName) {
+    public MyField getField(final Class<?> clazz, final String fieldName) throws Exception {
         Map<String, MyField> map = getFieldsAsMap(clazz, true);
         return map.get(fieldName);
     }
 
     @Override
-    public MyField getField(final String className, final String fieldName) {
+    public MyField getField(final String className, final String fieldName) throws Exception {
         return null;
     }
 }

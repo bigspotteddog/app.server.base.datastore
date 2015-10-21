@@ -24,6 +24,7 @@ import com.maintainer.data.model.MyClass;
 import com.maintainer.data.model.MyField;
 import com.maintainer.data.provider.DataProvider;
 import com.maintainer.data.provider.DataProviderFactory;
+import com.maintainer.data.model.ThreadLocalInfo;
 import com.maintainer.util.Utils;
 
 public class MapDatastoreDataProvider<T extends MapEntityImpl> extends DatastoreDataProvider<T> {
@@ -356,5 +357,21 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             // }
         }
         return class1;
+    }
+
+    @Override
+    public Map<String, MyField> getFieldsAsMap(final Class<?> clazz, final boolean isRecurse) throws Exception {
+        Map<String, MyField> fieldsAsMap = super.getFieldsAsMap(clazz, isRecurse);
+        if (MapEntityImpl.class.equals(clazz)) {
+            String path = ThreadLocalInfo.getInfo().getPath();
+            MyClass myClass = getMyClassFromPath(path);
+            List<MyField> fields = myClass.getFields();
+            for (MyField field : fields) {
+                String fieldName = field.getName();
+                fieldsAsMap.remove(fieldName);
+                fieldsAsMap.put(fieldName, field);
+            }
+        }
+        return fieldsAsMap;
     }
 }

@@ -2,6 +2,7 @@ package com.maintainer.data.provider.datastore;
 
 import com.maintainer.data.model.EntityImpl;
 
+@SuppressWarnings("serial")
 public class Blob extends EntityImpl {
 
     private final byte[] bytes;
