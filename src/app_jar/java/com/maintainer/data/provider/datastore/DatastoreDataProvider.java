@@ -93,7 +93,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             threadLocalCache.put(key, new Integer(1));
         } else {
             if (Integer.class.equals(obj.getClass())) {
-                log.severe("Cyclic redundancy detected for key: " + key.asString());
+                log.severe("Circular reference detected for key: " + key.asString());
                 if (key.getKind() == null) {
                     T keyedOnly = (T) getKeyedOnly(MapEntityImpl.class, key);
                     return keyedOnly;
@@ -134,7 +134,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     @Override
     public List<T> getAll(final Class<?> kind) throws Exception {
-        final String kindName = getKindName(kind);
+        final String kindName = Utils.getKindName(kind);
 
         final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(kindName);
         final FetchOptions options = FetchOptions.Builder.withDefaults();
@@ -147,14 +147,11 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     public T post(final T target) throws Exception {
         autocreate(target);
 
-        MyField created = null;
-        Field f = Utils.getField(target, "created");
-        if (f != null) {
-            created = new MyField(f);
-        } else {
+        MyField created = Utils.getField(target, "created");
+        if (created == null) {
             created = new MyField("created", Date.class);
         }
-        setFieldValue(target, created, new Date());
+        Utils.setFieldValue(target, created, new Date());
 
         final Entity entity = toEntity(null, target);
 
@@ -193,14 +190,11 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         autocreate(target);
 
-        MyField modified = null;
-        Field f = Utils.getField(target, "modified");
-        if (f != null) {
-            modified = new MyField(f);
-        } else {
+        MyField modified = Utils.getField(target, "modified");
+        if (modified == null) {
             modified = new MyField("modified", Date.class);
         }
-        setFieldValue(target, modified, new Date());
+        Utils.setFieldValue(target, modified, new Date());
 
         Entity entity = getEntity(createDatastoreKey(nobodyelsesKey));
         entity = toEntity(entity, target);
@@ -364,7 +358,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             }
 
             final Map<String, Object> properties = entity.getProperties();
-            final List<MyField> fields = getFields(obj);
+            final List<MyField> fields = Utils.getFields(obj);
             for (final MyField f : fields) {
                 final NotStored notStored = f.getNotStored();
                 if (notStored != null) {
@@ -450,7 +444,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                         value = new JsonString(value.toString());
                     }
 
-                    setFieldValue(obj, f, value);
+                    Utils.setFieldValue(obj, f, value);
                 }
             }
 
@@ -465,11 +459,11 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             if (autocreate != null) {
                 if (!Autocreate.EMPTY.equals(autocreate.parent())) {
                     if (key.getParent() != null) {
-                        final Field field = Utils.getField(obj, autocreate.parent());
+                        final MyField field = Utils.getField(obj, autocreate.parent());
                         field.setAccessible(true);
 
                         EntityImpl parent = null;
-                        final Autocreate fieldAutocreate = field.getAnnotation(Autocreate.class);
+                        final Autocreate fieldAutocreate = field.getAutocreate();
                         if (fieldAutocreate != null && fieldAutocreate.keysOnly()) {
                             parent = getKeyedOnly(nobodyelsesKey.getParent());
                         } else {
@@ -511,30 +505,6 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return datastore;
     }
 
-    protected String getKindName(final Class<?> clazz) throws Exception {
-        if (MapEntityImpl.class.equals(clazz)) {
-            String path = ThreadLocalInfo.getInfo().getPath();
-            MyClass myClass = getMyClassFromPath(path);
-            return myClass.getName();
-        }
-
-        return com.maintainer.data.provider.Key.getKindName(clazz);
-    }
-
-    @SuppressWarnings("unchecked")
-    protected MyClass getMyClassFromPath(final String path) throws Exception {
-        String[] split = path.split("/");
-        String route = split[2];
-        DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
-        Query q = new Query(MyClass.class);
-        q.filter("route", route);
-        List<MyClass> list = myClassDataProvider.find(q);
-        if (list.size() == 1) {
-            return list.get(0);
-        }
-        return null;
-    }
-
     private Entity newEntity(final EntityBase parent, final String kind) {
         if (parent != null) {
             return new Entity(kind, createDatastoreKey(parent.getKey()));
@@ -555,7 +525,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 parent = (EntityBase) Utils.getFieldValue(target, annotation.parent());
             }
 
-            final String kindName = getKindName(clazz);
+            final String kindName = Utils.getKindName(clazz);
 
             if (annotation != null && !Autocreate.EMPTY.equals(annotation.id())) {
 
@@ -581,7 +551,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             }
         }
 
-        final List<MyField> fields = getFields(target);
+        final List<MyField> fields = Utils.getFields(target);
 
         for (final MyField f : fields) {
             final NotStored notStored = f.getNotStored();
@@ -703,7 +673,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private com.google.appengine.api.datastore.Query getQuery(final Query query) throws Exception {
-        final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(getKindName(query.getKind()));
+        final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(Utils.getKindName(query.getKind()));
 
         for (final Filter e : query.getFilters()) {
             final String condition = e.getCondition();

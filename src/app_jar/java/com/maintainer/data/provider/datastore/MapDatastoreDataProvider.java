@@ -87,7 +87,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
         entity = super.toEntity(entity, target);
 
-        List<MyField> fields = getFields(target);
+        List<MyField> fields = Utils.getFields(target);
 
         for (MyField field : fields) {
 
@@ -223,52 +223,6 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         }
     }
 
-    @SuppressWarnings("unchecked")
-    @Override
-    public Object getFieldValue(final Object obj, final MyField f) throws IllegalAccessException {
-        T t = (T) obj;
-        final Object value = t.get(f.getName());
-        return value;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public void setFieldValue(final Object obj, final MyField f, final Object value) throws IllegalAccessException {
-        T t = (T) obj;
-        t.set(f.getName(), value);
-    }
-
-    @Override
-    @SuppressWarnings({"unchecked"})
-    public List<MyField> getFields(final Object target, boolean isRecurse) throws Exception {
-        Set<MyField> set = new HashSet<MyField>(super.getFields(target, isRecurse));
-
-        DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
-
-        Class<?> clazz = target.getClass();
-        String className = getKindName(clazz);
-
-        List<MyField> fields = getFields(className);
-        for (MyField f : fields) {
-            set.remove(f);
-            set.add(f);
-        }
-
-        return new ArrayList<MyField>(set);
-    }
-
-    @SuppressWarnings("unchecked")
-    public List<MyField> getFields(final String className) throws Exception {
-        com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, className);
-        DataProvider<MyClass> myClassDataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
-        MyClass myClass = myClassDataProvider.get(key);
-        if (myClass != null) {
-            List<MyField> fields = myClass.getFields();
-            return fields;
-        }
-        return Collections.<MyField>emptyList();
-    }
-
     @Override
     public T fromJson(Class<?> kind, String json) throws Exception {
         T obj = super.fromJson(kind, json);
@@ -276,7 +230,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
         Map<String, Object> map = gson.fromJson(json, Utils.getItemType());
 
-        List<MyField> fields = getFields(obj);
+        List<MyField> fields = Utils.getFields(obj);
         obj = fromFields(obj, fields, map);
         return obj;
     }
@@ -294,7 +248,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
                 if (Collection.class.isAssignableFrom(valueType)) {
                     String className = field.getMyClass().getName();
-                    List<MyField> fields2 = getFields(className);
+                    List<MyField> fields2 = Utils.getFields(className);
 
                     List<Object> list = new ArrayList<Object>((Collection) value);
                     List<Object> list2 = new ArrayList<Object>();
@@ -313,29 +267,29 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     T obj2 = super.fromJson(MapEntityImpl.class, json);
 
                     String className = field.getMyClass().getName();
-                    List<MyField> fields2 = getFields(className);
+                    List<MyField> fields2 = Utils.getFields(className);
                     value = fromFields(obj2, fields2, (Map<String, Object>) value);
                 }
             }
 
             if (value == null) {
-                setFieldValue(obj, field, null);
+                Utils.setFieldValue(obj, field, null);
             } else {
                 if (MapEntityImpl.class.isAssignableFrom(type)) {
-                    setFieldValue(obj, field, value);
+                    Utils.setFieldValue(obj, field, value);
                 } else if (EntityBase.class.isAssignableFrom(type)) {
                     String json2 = gson.toJson(value);
                     DataProvider<?> dataProvider = DataProviderFactory.instance().getDataProvider(type);
                     value = dataProvider.fromJson(type, json2);
-                    setFieldValue(obj, field, value);
+                    Utils.setFieldValue(obj, field, value);
                 } else if (Date.class.isAssignableFrom(type)) {
                     if (String.class == value.getClass()) {
-                        setFieldValue(obj, field, Utils.convertToDate(value.toString()));
+                        Utils.setFieldValue(obj, field, Utils.convertToDate(value.toString()));
                     } else {
-                        setFieldValue(obj, field, new Date(new BigDecimal(value.toString()).longValue()));
+                        Utils.setFieldValue(obj, field, new Date(new BigDecimal(value.toString()).longValue()));
                     }
                 } else {
-                    setFieldValue(obj, field, Utils.convert(value, type));
+                    Utils.setFieldValue(obj, field, Utils.convert(value, type));
                 }
             }
         }
@@ -357,21 +311,5 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             // }
         }
         return class1;
-    }
-
-    @Override
-    public Map<String, MyField> getFieldsAsMap(final Class<?> clazz, final boolean isRecurse) throws Exception {
-        Map<String, MyField> fieldsAsMap = super.getFieldsAsMap(clazz, isRecurse);
-        if (MapEntityImpl.class.equals(clazz)) {
-            String path = ThreadLocalInfo.getInfo().getPath();
-            MyClass myClass = getMyClassFromPath(path);
-            List<MyField> fields = myClass.getFields();
-            for (MyField field : fields) {
-                String fieldName = field.getName();
-                fieldsAsMap.remove(fieldName);
-                fieldsAsMap.put(fieldName, field);
-            }
-        }
-        return fieldsAsMap;
     }
 }
