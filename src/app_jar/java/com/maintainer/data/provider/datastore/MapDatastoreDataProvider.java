@@ -240,6 +240,10 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         Gson gson = Utils.getGson();
 
         for (MyField field : fields) {
+            if ("properties".equals(field.getName())) {
+                continue;
+            }
+
             Class<?> type = field.getType();
             Object value = map.get(field.getName());
 
@@ -254,11 +258,15 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     List<Object> list2 = new ArrayList<Object>();
 
                     for (Object o : list) {
-                        String json = gson.toJson(o);
-                        T obj2 = super.fromJson(MapEntityImpl.class, json);
-                        Map<String, Object> map2 = gson.fromJson(json, Utils.getItemType());
-                        obj2 = fromFields(obj2, fields2, map2);
-                        list2.add(obj2);
+                        if (EntityBase.class.isAssignableFrom(type)) {
+                            String json = gson.toJson(o);
+                            T obj2 = super.fromJson(MapEntityImpl.class, json);
+                            Map<String, Object> map2 = gson.fromJson(json, Utils.getItemType());
+                            obj2 = fromFields(obj2, fields2, map2);
+                            list2.add(obj2);
+                        } else {
+                            list2.add(o);
+                        }
                     }
 
                     value = list2;

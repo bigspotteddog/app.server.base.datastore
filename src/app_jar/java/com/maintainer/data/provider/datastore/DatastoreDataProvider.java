@@ -690,17 +690,17 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private com.google.appengine.api.datastore.Query getQuery(final Query query) throws Exception {
-        // String kindName = null;
-        // Class<?> clazz = query.getKind();
-        //
-        // if (MapEntityImpl.class.equals(clazz)) {
-        //     kindName = query.getKindName();
-        // } else {
-        //     kindName = Utils.getKindName(clazz);
-        // }
-        // final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(kindName);
+        String kindName = null;
+        Class<?> clazz = query.getKind();
 
-        final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(Utils.getKindName(query.getKind()));
+        if (clazz != null) {
+            kindName = Utils.getKindName(clazz);
+        } else {
+            kindName = query.getKindName();
+        }
+
+        final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(kindName);
+
         for (final Filter e : query.getFilters()) {
             final String condition = e.getCondition();
 
@@ -709,7 +709,13 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
             final FilterOperator operator = getOperator(op);
 
-            final Class<?> keyType = Utils.getKeyType(query.getKind(), key);
+            Class<?> keyType = null;
+            if (query.getKind() != null && !MapEntityImpl.class.equals(query.getKind().getClass())) {
+                keyType = Utils.getKeyType(query.getKind(), key);
+            } else {
+                keyType = Utils.getKeyType(kindName, key);
+            }
+
             Object value = e.getValue();
             value = Utils.convert(value, keyType);
 
