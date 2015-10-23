@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -650,15 +651,31 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return new Entity(key);
     }
 
-    private void addFilter(final com.google.appengine.api.datastore.Query q, final String propertyName, final FilterOperator operator, Object value) {
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Object convertValue(Object value) {
         if (EntityImpl.class.isAssignableFrom(value.getClass())) {
             final EntityImpl entity = (EntityImpl) value;
             value = createDatastoreKey(entity.getKey());
         } else if (com.maintainer.data.provider.Key.class.isAssignableFrom(value.getClass())) {
             final com.maintainer.data.provider.Key k = (com.maintainer.data.provider.Key) value;
             value = createDatastoreKey(k);
+        } else if (Collection.class.isAssignableFrom(value.getClass())) {
+            List list = new ArrayList();
+            Collection c = (Collection) value;
+            Iterator i = c.iterator();
+            while (i.hasNext()) {
+                Object v = i.next();
+                v = convertValue(v);
+                list.add(v);
+            }
+            value = list;
         }
 
+        return value;
+    }
+
+    private void addFilter(final com.google.appengine.api.datastore.Query q, final String propertyName, final FilterOperator operator, Object value) {
+        value = convertValue(value);
         q.addFilter(propertyName.trim(), operator, value);
     }
 
