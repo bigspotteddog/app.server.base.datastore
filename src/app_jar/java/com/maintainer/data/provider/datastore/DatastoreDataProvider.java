@@ -690,8 +690,17 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     private com.google.appengine.api.datastore.Query getQuery(final Query query) throws Exception {
-        final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(Utils.getKindName(query.getKind()));
+        // String kindName = null;
+        // Class<?> clazz = query.getKind();
+        //
+        // if (MapEntityImpl.class.equals(clazz)) {
+        //     kindName = query.getKindName();
+        // } else {
+        //     kindName = Utils.getKindName(clazz);
+        // }
+        // final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(kindName);
 
+        final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(Utils.getKindName(query.getKind()));
         for (final Filter e : query.getFilters()) {
             final String condition = e.getCondition();
 
