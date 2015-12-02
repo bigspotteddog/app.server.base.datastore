@@ -2,7 +2,6 @@ package com.maintainer.data.provider.datastore;
 
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,11 +46,9 @@ import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.EntityImpl;
 import com.maintainer.data.model.MapEntityImpl;
-import com.maintainer.data.model.MyClass;
 import com.maintainer.data.model.MyField;
 import com.maintainer.data.model.NotIndexed;
 import com.maintainer.data.model.NotStored;
-import com.maintainer.data.model.ThreadLocalInfo;
 import com.maintainer.data.provider.DataProvider;
 import com.maintainer.data.provider.DataProviderFactory;
 import com.maintainer.data.provider.Filter;
@@ -526,7 +523,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 parent = (EntityBase) Utils.getFieldValue(target, annotation.parent());
             }
 
-            final String kindName = Utils.getKindName(clazz);
+            final String kindName = getKindName(target);
 
             if (annotation != null && !Autocreate.EMPTY.equals(annotation.id())) {
 
@@ -631,6 +628,12 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         }
 
         return entity;
+    }
+
+    protected String getKindName(T target) throws Exception {
+        Class<?> clazz = target.getClass();
+        String kindName = Utils.getKindName(clazz);
+        return kindName;
     }
 
     @SuppressWarnings("unchecked")

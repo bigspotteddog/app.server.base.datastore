@@ -135,7 +135,11 @@ public abstract class AbstractDatastoreDataProvider<T> extends AbstractDataProvi
         final Key parentKey = createDatastoreKey(parent);
 
         if (Utils.isNumeric(id.toString())) {
-            key = KeyFactory.createKey(parentKey, kind, new BigDecimal(id.toString()).longValue());
+            try {
+                key = KeyFactory.createKey(parentKey, kind, new BigDecimal(id.toString()).longValue());
+            } catch (Exception e) {
+                key = KeyFactory.createKey(parentKey, kind, (String) id);
+            }
         } else if (Long.class.isAssignableFrom(id.getClass())) {
             key = KeyFactory.createKey(parentKey, kind, (Long) id);
         } else if (Double.class.isAssignableFrom(id.getClass())){

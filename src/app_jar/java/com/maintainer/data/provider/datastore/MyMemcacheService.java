@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
+import java.util.logging.Logger;
 import com.google.appengine.api.memcache.ErrorHandler;
 import com.google.appengine.api.memcache.Expiration;
 import com.google.appengine.api.memcache.MemcacheServiceFactory;
@@ -11,6 +12,8 @@ import com.google.appengine.api.memcache.Stats;
 
 @SuppressWarnings("deprecation")
 public class MyMemcacheService implements com.google.appengine.api.memcache.MemcacheService {
+
+    private static final Logger log = Logger.getLogger(MyMemcacheService.class.getName());
 
     private static final class MyMemcacheServiceHolder {
         private static final MyMemcacheService INSTANCE = new MyMemcacheService();
@@ -149,62 +152,107 @@ public class MyMemcacheService implements com.google.appengine.api.memcache.Memc
     @Override
     public void put(final Object arg0, final Object arg1) {
         if (!isActive()) return;
-        MemcacheServiceFactory.getMemcacheService().put(arg0, arg1);
+        try {
+            MemcacheServiceFactory.getMemcacheService().put(arg0, arg1);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
     }
 
     @Override
     public void put(final Object arg0, final Object arg1, final Expiration arg2) {
         if (!isActive()) return;
-        MemcacheServiceFactory.getMemcacheService().put(arg0, arg1, arg2);
-
+        try {
+            MemcacheServiceFactory.getMemcacheService().put(arg0, arg1, arg2);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
     }
 
     @Override
     public boolean put(final Object arg0, final Object arg1, final Expiration arg2, final SetPolicy arg3) {
         if (!isActive()) return false;
-        return MemcacheServiceFactory.getMemcacheService().put(arg0, arg1, arg2, arg3);
+        try {
+            return MemcacheServiceFactory.getMemcacheService().put(arg0, arg1, arg2, arg3);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+            return false;
+        }
     }
 
     @Override
     public void putAll(final Map<?, ?> arg0) {
         if (!isActive()) return;
-        MemcacheServiceFactory.getMemcacheService().putAll(arg0);
+        try {
+            MemcacheServiceFactory.getMemcacheService().putAll(arg0);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
     }
 
     @Override
     public void putAll(final Map<?, ?> arg0, final Expiration arg1) {
         if (!isActive()) return;
-        MemcacheServiceFactory.getMemcacheService().putAll(arg0, arg1);
+        try {
+            MemcacheServiceFactory.getMemcacheService().putAll(arg0, arg1);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
     }
 
     @Override
     public <T> Set<T> putAll(final Map<T, ?> arg0, final Expiration arg1, final SetPolicy arg2) {
         if (!isActive()) return null;
-        return MemcacheServiceFactory.getMemcacheService().putAll(arg0, arg1, arg2);
+        try {
+            return MemcacheServiceFactory.getMemcacheService().putAll(arg0, arg1, arg2);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
+        return null;
     }
 
     @Override
     public <T> Set<T> putIfUntouched(final Map<T, CasValues> arg0) {
         if (!isActive()) return null;
-        return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0);
+        try {
+            return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
+        return null;
     }
 
     @Override
     public <T> Set<T> putIfUntouched(final Map<T, CasValues> arg0, final Expiration arg1) {
         if (!isActive()) return null;
-        return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0, arg1);
+        try {
+            return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0, arg1);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
+        return null;
     }
 
     @Override
     public boolean putIfUntouched(final Object arg0, final IdentifiableValue arg1, final Object arg2) {
         if (!isActive()) return false;
-        return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0, arg1, arg2);
+        try {
+            return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0, arg1, arg2);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
+        return false;
     }
 
     @Override
     public boolean putIfUntouched(final Object arg0, final IdentifiableValue arg1, final Object arg2, final Expiration arg3) {
         if (!isActive()) return false;
-        return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0, arg1, arg2, arg3);
+        try {
+            return MemcacheServiceFactory.getMemcacheService().putIfUntouched(arg0, arg1, arg2, arg3);
+        } catch (Exception e) {
+            log.severe(e.getMessage());
+        }
+        return false;
     }
 
     @Override

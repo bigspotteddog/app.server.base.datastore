@@ -3,14 +3,11 @@ package com.maintainer.data.provider.datastore;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.apache.log4j.Logger;
 
@@ -24,7 +21,6 @@ import com.maintainer.data.model.MyClass;
 import com.maintainer.data.model.MyField;
 import com.maintainer.data.provider.DataProvider;
 import com.maintainer.data.provider.DataProviderFactory;
-import com.maintainer.data.model.ThreadLocalInfo;
 import com.maintainer.util.Utils;
 
 public class MapDatastoreDataProvider<T extends MapEntityImpl> extends DatastoreDataProvider<T> {
@@ -177,7 +173,11 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 if (value != null) {
                     if (EntityBase.class.isAssignableFrom(value.getClass())) {
                         final EntityBase entity = (EntityBase) value;
-                        mapEntityImpl.set(fieldName, createOrUpdate(entity, f.readonly(), f.create(), f.update()));
+                        if (MapEntityImpl.class.isAssignableFrom(value.getClass())) {
+                            final MapEntityImpl mapEntityImpl2 = (MapEntityImpl) value;
+                            mapEntityImpl2.setMyClass(f.getMyClass());
+                        }
+                        mapEntityImpl.set(fieldName, createOrUpdate(entity, f.readonly(), true /* f.create() */, true /* f.update() */));
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
                         final List<Object> list = new ArrayList<Object>();
                         if (value != null) {
@@ -200,7 +200,11 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                             }
                             if (EntityBase.class.isAssignableFrom(o.getClass())) {
                                 final EntityBase entity = (EntityBase) o;
-                                iterator.set(createOrUpdate(entity, f.readonly(), f.create(), f.update()));
+                                if (MapEntityImpl.class.isAssignableFrom(o.getClass())) {
+                                    final MapEntityImpl mapEntityImpl2 = (MapEntityImpl) o;
+                                    mapEntityImpl2.setMyClass(f.getMyClass());
+                                }
+                                iterator.set(createOrUpdate(entity, f.readonly(), true /* f.create() */, true /* f.update() */));
                             }
                         }
 
@@ -306,7 +310,6 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
-    @SuppressWarnings({"unchecked"})
     public Class<?> getClazz(final Key k) throws ClassNotFoundException {
         Class<?> class1 = super.getClazz(k);
         if (class1 == null) {
@@ -319,5 +322,17 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             // }
         }
         return class1;
+    }
+
+    @Override
+    protected String getKindName(T target) throws Exception {
+        if (MapEntityImpl.class.isAssignableFrom(target.getClass())) {
+            MapEntityImpl mapEntityImpl = target;
+            MyClass myClass = mapEntityImpl.getMyClass();
+            if (myClass != null) {
+                return myClass.getName();
+            }
+        }
+        return super.getKindName(target);
     }
 }
