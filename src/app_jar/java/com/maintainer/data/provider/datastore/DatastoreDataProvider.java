@@ -865,13 +865,15 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             final com.maintainer.data.provider.Key key = e.getKey();
             final T t = (T) e.getValue();
 
-            // because the keys are not in the cache
-            if (t.getKey() ==  null) {
-                t.setKey(key);
-                t.setId(getEncodedKeyString(key));
-            }
+            if (t != null) {
+                // because the keys are not in the cache
+                if (t.getKey() ==  null) {
+                    t.setKey(key);
+                    t.setId(getEncodedKeyString(key));
+                }
 
-            list.add(t);
+                list.add(t);
+            }
         }
 
         final List<Key> keys = new ArrayList<Key>();
@@ -1151,7 +1153,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             final Map<String, Object> map3 = memcache.getAll(stringKeys);
             if (map3 != null && !map3.isEmpty()) {
                 for (final Entry<String, Object> e : map3.entrySet()) {
-                    map.put(com.maintainer.data.provider.Key.fromString(e.getKey()), e.getValue());
+                    if (e.getValue() != null) {
+                        map.put(com.maintainer.data.provider.Key.fromString(e.getKey()), e.getValue());
+                    }
                 }
             }
         }
@@ -1279,7 +1283,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 //            name = "content" + (count > 0?count:"");
 //        }
 
-        // log.warning("Deflated bytes: " + deflated.length);
+        log.warning("Deflated bytes: " + deflated.length);
         entity.setUnindexedProperty("content", new Blob(deflated));
         entity.setUnindexedProperty("length", deflated.length);
         entity.setUnindexedProperty("encoding", "zip");
