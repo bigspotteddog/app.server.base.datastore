@@ -82,51 +82,59 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return super.getId(object);
     }
 
+    @Override
+    public T get(final com.maintainer.data.provider.Key key, final int depth) throws Exception {
+        return get(key, depth, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+    }
+
     @SuppressWarnings("unchecked")
     @Override
-    public T get(final com.maintainer.data.provider.Key key) throws Exception {
-        ThreadLocalCache threadLocalCache = ThreadLocalCache.get();
-        Object obj = threadLocalCache.get(key);
+    public T get(final com.maintainer.data.provider.Key key, final int depth, final int currentDepth, final Map<com.maintainer.data.provider.Key, Object> cache) throws Exception {
+        log.info("Looking for: " + key.asString());
+        Object obj = cache.get(key);
         if (obj == null) {
-            threadLocalCache.put(key, new Integer(1));
+            cache.put(key, currentDepth);
         } else {
-            if (Integer.class.equals(obj.getClass())) {
-                log.severe("Circular reference detected for key: " + key.asString());
-                if (key.getKind() == null) {
-                    T keyedOnly = (T) getKeyedOnly(MapEntityImpl.class, key);
-                    return keyedOnly;
-                } else {
-                    T keyedOnly = (T) getKeyedOnly(key);
-                    return keyedOnly;
-                }
+            int d = (int) obj;
+            if (d < currentDepth) {
+
+                throw new CirularReferenceException();
+//                if (key.getKind() == null) {
+//                    T keyedOnly = (T) getKeyedOnly(MapEntityImpl.class, key);
+//                    return keyedOnly;
+//                } else {
+//                    T keyedOnly = (T) getKeyedOnly(key);
+//                    return keyedOnly;
+//                }
             }
         }
 
-        final T cached = (T) getCached(key);
-        if (cached != null) {
-            if (cached.getKey() == null) {
-                cached.setKey(key);
+        if (depth == Autocreate.MAX_DEPTH) {
+            final T cached = (T) getCached(key);
+            if (cached != null) {
+                if (cached.getKey() == null) {
+                    cached.setKey(key);
+                }
+                // log.fine(key + " returned from cache.");
+                return cached;
             }
-            // log.fine(key + " returned from cache.");
-            threadLocalCache.put(key, cached);
-            return cached;
         }
 
         final Key k = createDatastoreKey(key);
         try {
             final Entity entity = getEntity(k);
             Class<?> kind = getClazz(k);
-            final T fetched = getTarget(kind, entity);
-            putCache(key, fetched);
+            final T fetched = getTarget(kind, entity, depth, currentDepth, cache);
 
-            threadLocalCache.put(key, fetched);
+            if (depth == Autocreate.MAX_DEPTH) {
+                putCache(key, fetched);
+            }
 
             return fetched;
         } catch (final EntityNotFoundException e) {
             //ignore, it will just be null
         }
 
-        threadLocalCache.remove(key);
         return null;
     }
 
@@ -137,7 +145,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(kindName);
         final FetchOptions options = FetchOptions.Builder.withDefaults();
 
-        final List<T> list = getEntities(q, options, 0);
+        final List<T> list = getEntities(q, options, 0, getDefaultDepth(), new HashMap<com.maintainer.data.provider.Key, Object>());
         return list;
     }
 
@@ -162,7 +170,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         invalidateCached(nobodyelsesKey);
 
-        ThreadLocalCache.get().put(nobodyelsesKey, target);
+        ThreadLocalCache.get().remove(nobodyelsesKey);
 
         return target;
     }
@@ -174,7 +182,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             final T existing = get(nobodyelsesKey);
 
             if (checkEqual(target, existing)) {
-                ThreadLocalCache.get().put(nobodyelsesKey, target);
+                ThreadLocalCache.get().remove(nobodyelsesKey);
                 return target;
             } else {
                 // log.fine(nobodyelsesKey + " changed.");
@@ -202,7 +210,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         invalidateCached(nobodyelsesKey);
 
-        ThreadLocalCache.get().put(nobodyelsesKey, target);
+        ThreadLocalCache.get().remove(nobodyelsesKey);
 
         return target;
     }
@@ -222,17 +230,25 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     public List<T> find(final Query query) throws Exception {
         final DatastoreService datastore = getDatastore();
 
+        int depth = getDefaultDepth();
+        if (depth != query.getDepth()) {
+            depth = query.getDepth();
+        }
+
         Class<?> kind = query.getKind();
         if (query.getKey() != null) {
             try {
                 final Key key = createDatastoreKey(query.getKey());
                 final Entity entity = datastore.get(key);
 
-                final T target = getTarget(kind, entity);
+                final T target = getTarget(kind, entity, depth, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
 
                 final ResultListImpl<T> list = new ResultListImpl<T>();
                 list.add(target);
-                putCache(target.getKey(), target);
+
+                if (depth == Autocreate.MAX_DEPTH) {
+                    putCache(target.getKey(), target);
+                }
                 return list;
             } catch (final EntityNotFoundException e) {
                 e.printStackTrace();
@@ -275,7 +291,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             q.setKeysOnly();
         }
 
-        final ResultListImpl<T> list = getEntities(q, options, limit);
+        final ResultListImpl<T> list = getEntities(q, options, limit, depth, new HashMap<com.maintainer.data.provider.Key, Object>());
 
         if (!list.isEmpty()) {
             String order = query.getOrder();
@@ -342,8 +358,14 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         return entity;
     }
 
-    @SuppressWarnings( {"unchecked", "rawtypes"} )
     public T fromEntity(final Class<?> kind, final Entity entity) throws Exception {
+        return fromEntity(kind, entity, getDefaultDepth(), 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+    }
+
+    @SuppressWarnings( {"unchecked", "rawtypes"} )
+    public T fromEntity(final Class<?> kind, final Entity entity, final int depth, final int currentDepth, final Map<com.maintainer.data.provider.Key, Object> cache) throws Exception {
+        final Key entityKey = entity.getKey();
+
         T obj = null;
 
         try {
@@ -353,6 +375,15 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 obj = c.newInstance((Object[]) null);
             } else {
                 obj = (T) new MapEntityImpl();
+            }
+
+            final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(entityKey);
+            obj.setKey(nobodyelsesKey);
+            obj.setIdentity(nobodyelsesKey.getId());
+            obj.setId(getEncodedKeyString(nobodyelsesKey));
+
+            if (depth == currentDepth) {
+                return obj;
             }
 
             final Map<String, Object> properties = entity.getProperties();
@@ -365,7 +396,18 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
                 f.setAccessible(true);
 
+                boolean keysOnly = false;
+
                 final Autocreate autocreate = f.getAutocreate();
+
+                if (autocreate != null) {
+                    keysOnly = autocreate.keysOnly();
+                }
+
+                if (depth <= currentDepth) {
+                    keysOnly = true;
+                }
+
                 final String key = f.getName();
                 Object value = properties.get(key);
 
@@ -375,10 +417,14 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                     } else if (Key.class.isAssignableFrom(value.getClass())) {
                         final Key k = (Key) value;
                         final com.maintainer.data.provider.Key key2 = createNobodyelsesKey(k);
-                        if (autocreate != null && autocreate.keysOnly()) {
+                        if (autocreate != null && keysOnly) {
                             value = getKeyedOnly(key2);
                         } else {
-                            value = get(key2);
+                            try {
+                                value = get(key2, depth, currentDepth + 1, cache);
+                            } catch (CirularReferenceException e1) {
+                                value = get(key2, 1, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+                            }
                         }
                     } else if (Blob.class.isAssignableFrom(value.getClass())) {
                         value = ((Blob) value).getBytes();
@@ -395,10 +441,14 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                             if (Key.class.isAssignableFrom(o.getClass())) {
                                 final Key k = (Key) o;
                                 final com.maintainer.data.provider.Key key2 = createNobodyelsesKey(k);
-                                if (autocreate != null && autocreate.keysOnly()) {
+                                if (autocreate != null && keysOnly) {
                                     o = getKeyedOnly(key2);
                                 } else {
-                                    o = get(key2);
+                                    try {
+                                        o = get(key2, depth, currentDepth + 1, cache);
+                                    } catch (CirularReferenceException e1) {
+                                        o = get(key2, 1, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+                                    }
                                 }
                                 iterator.set(o);
                             }
@@ -420,10 +470,14 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                             if (Key.class.isAssignableFrom(o.getClass())) {
                                 final Key k = (Key) o;
                                 final com.maintainer.data.provider.Key key2 = createNobodyelsesKey(k);
-                                if (autocreate != null && autocreate.keysOnly()) {
+                                if (autocreate != null && keysOnly) {
                                     o = getKeyedOnly(key2);
                                 } else {
-                                    o = get(key2);
+                                    try {
+                                        o = get(key2, depth, currentDepth + 1, cache);
+                                    } catch (CirularReferenceException e1) {
+                                        o = get(key2, 1, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+                                    }
                                 }
                                 iterator.set(o);
                             }
@@ -446,17 +500,10 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 }
             }
 
-            final Key key = entity.getKey();
-            final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(key);
-
-            obj.setKey(nobodyelsesKey);
-            obj.setIdentity(nobodyelsesKey.getId());
-            obj.setId(getEncodedKeyString(nobodyelsesKey));
-
             final Autocreate autocreate = obj.getClass().getAnnotation(Autocreate.class);
             if (autocreate != null) {
                 if (!Autocreate.EMPTY.equals(autocreate.parent())) {
-                    if (key.getParent() != null) {
+                    if (entityKey.getParent() != null) {
                         final MyField field = Utils.getField(obj, autocreate.parent());
                         field.setAccessible(true);
 
@@ -472,6 +519,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                     }
                 }
             }
+        } catch (final CirularReferenceException e) {
+
         } catch (final Exception e) {
             throw new RuntimeException(e);
         }
@@ -888,7 +937,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             final Entity entity = e.getValue();
 
             Class<?> kind = getClazz(key);
-            final T target = getTarget(kind, entity);
+            final T target = getTarget(kind, entity, getDefaultDepth(), 0, new HashMap<com.maintainer.data.provider.Key, Object>());
 
             list.add(target);
             needsToBeCachedMap.put(target.getKey(), target);
@@ -899,8 +948,12 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     @SuppressWarnings("unchecked")
-    protected ResultListImpl<T> getEntities(final com.google.appengine.api.datastore.Query q, FetchOptions options, final int limit) throws Exception {
-        final boolean isKeysOnly = setKeysOnly(q);
+    protected ResultListImpl<T> getEntities(final com.google.appengine.api.datastore.Query q, FetchOptions options, final int limit, final int depth, final Map<com.maintainer.data.provider.Key, Object> cache) throws Exception {
+        boolean isKeysOnly = setKeysOnly(q);
+
+        if (depth == 0) {
+            isKeysOnly = true;
+        }
 
         final DatastoreService datastore = getDatastore();
         final PreparedQuery p = datastore.prepare(q);
@@ -953,7 +1006,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 final EntityImpl keyedOnly = getKeyedOnly(key);
                 list.add((T) keyedOnly);
 
-                ThreadLocalCache.get().put(key, keyedOnly);
+//                ThreadLocalCache.get().remove(key);
             }
             list.setStartCursor(start);
             list.setEndCursor(end);
@@ -963,9 +1016,12 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         }
 
         final Map<com.maintainer.data.provider.Key, Object> map = new LinkedHashMap<com.maintainer.data.provider.Key, Object>();
-        final Map<com.maintainer.data.provider.Key, Object> map2 = getCachedAndTrimKeysNeeded(keysNeeded);
+        Map<com.maintainer.data.provider.Key, Object> map2 = null;
+        if (depth == Autocreate.MAX_DEPTH) {
+            map2 = getCachedAndTrimKeysNeeded(keysNeeded);
+        }
 
-        if (!map2.isEmpty()) {
+        if (map2 != null && !map2.isEmpty()) {
             map.putAll(map2);
         }
 
@@ -987,12 +1043,16 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 }
 
                 Class<?> kind = getClazz(key);
-                final T target = getTarget(kind, entity);
+                final T target = getTarget(kind, entity, depth, 0, cache);
 
                 map.put(target.getKey(), target);
-                needsToBeCachedMap.put(target.getKey(), target);
+                if (depth == Autocreate.MAX_DEPTH) {
+                    needsToBeCachedMap.put(target.getKey(), target);
+                }
             }
-            putAllCache(needsToBeCachedMap);
+            if (depth == Autocreate.MAX_DEPTH) {
+                putAllCache(needsToBeCachedMap);
+            }
         }
 
         final ResultListImpl<T> list = new ResultListImpl<T>(map.size());
@@ -1004,7 +1064,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
                 o.setKey(key);
                 list.add(o);
 
-                ThreadLocalCache.get().put(key, o);
+                //ThreadLocalCache.get().remove(key);
             }
         }
 
@@ -1016,9 +1076,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    protected T getTarget(Class<?> kind, final Entity entity) throws Exception {
+    protected T getTarget(Class<?> kind, final Entity entity, final int depth, final int currentDepth, final Map<com.maintainer.data.provider.Key, Object> cache) throws Exception {
         DataProvider<?> dataProvider = DataProviderFactory.instance().getDataProvider(kind);
-        final T target = (T) ((DatastoreDataProvider) dataProvider).fromEntity(kind, entity);
+        final T target = (T) ((DatastoreDataProvider) dataProvider).fromEntity(kind, entity, depth, currentDepth, cache);
         return target;
     }
 

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -15,6 +16,7 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.Text;
 import com.google.gson.Gson;
+import com.maintainer.data.model.Autocreate;
 import com.maintainer.data.model.EntityBase;
 import com.maintainer.data.model.MapEntityImpl;
 import com.maintainer.data.model.MyClass;
@@ -28,8 +30,13 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
     @Override
     @SuppressWarnings("unchecked")
-    public T fromEntity(final Class<?> kind, final Entity entity) throws Exception {
-        final T obj = super.fromEntity(kind, entity);
+    public T fromEntity(final Class<?> kind, final Entity entity, final int depth, final int currentDepth, final Map<com.maintainer.data.provider.Key, Object> cache) throws Exception {
+        final T obj = super.fromEntity(kind, entity, depth, currentDepth, cache);
+
+        boolean keysOnly = false;
+        if (depth == currentDepth) {
+            keysOnly = true;
+        }
 
         try {
             final Map<String, Object> properties = entity.getProperties();
@@ -49,7 +56,22 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     if (Key.class.isAssignableFrom(value.getClass())) {
                         final Key k = (Key) value;
                         com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(k);
-                        value = get(nobodyelsesKey);
+                        Object cachedDepth = cache.get(nobodyelsesKey);
+                        int d = Autocreate.MAX_DEPTH;
+
+                        if (cachedDepth != null) {
+                            d = (int) cachedDepth;
+                        }
+
+                        if (keysOnly || d < currentDepth) {
+                            value = getKeyedOnly(nobodyelsesKey);
+                        } else {
+                            try {
+                                value = get(nobodyelsesKey, depth, currentDepth + 1, cache);
+                            } catch (CirularReferenceException e1) {
+                                value = get(nobodyelsesKey, 1, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+                            }
+                        }
                     } else if (Text.class.isAssignableFrom(value.getClass())) {
                         value = ((Text) value).getValue();
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
@@ -61,7 +83,23 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                             if (Key.class.isAssignableFrom(o.getClass())) {
                                 final Key k = (Key) o;
                                 com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(k);
-                                o = get(nobodyelsesKey);
+
+                                Object cachedDepth = cache.get(nobodyelsesKey);
+                                int d = Autocreate.MAX_DEPTH;
+
+                                if (cachedDepth != null) {
+                                    d = (int) cachedDepth;
+                                }
+
+                                if (keysOnly ||  d < currentDepth) {
+                                    o = getKeyedOnly(nobodyelsesKey);
+                                } else {
+                                    try {
+                                        o = get(nobodyelsesKey, depth, currentDepth + 1, cache);
+                                    } catch (CirularReferenceException e1) {
+                                        o = get(nobodyelsesKey, 1, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+                                    }
+                                }
                                 iterator.set(o);
                             }
                         }
@@ -70,6 +108,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     obj.put(field, value);
                 }
             }
+        } catch (final CirularReferenceException e) {
+
         } catch (final Exception e) {
             throw new RuntimeException(e);
         }
@@ -143,7 +183,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     @SuppressWarnings({"rawtypes", "unchecked"})
     protected void autocreateFromField(final EntityBase target, final T existing, final MyField f) {
         f.setAccessible(true);
-        if (f.isAutocreate() && !f.embedded()) {
+        if (f.hasAutocreate() && !f.embedded()) {
             try {
                 MapEntityImpl mapEntityImpl = (MapEntityImpl) target;
                 String fieldName = f.getName();
