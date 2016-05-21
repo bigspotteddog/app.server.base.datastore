@@ -33,6 +33,8 @@ import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.PreparedQuery;
+import com.google.appengine.api.datastore.Query.CompositeFilter;
+import com.google.appengine.api.datastore.Query.CompositeFilterOperator;
 import com.google.appengine.api.datastore.Query.FilterOperator;
 import com.google.appengine.api.datastore.Query.FilterPredicate;
 import com.google.appengine.api.datastore.Query.SortDirection;
@@ -166,6 +168,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(posted);
         target.setKey(nobodyelsesKey);
+        target.setIdentity(nobodyelsesKey.getId());
         target.setId(getEncodedKeyString(nobodyelsesKey));
 
         invalidateCached(nobodyelsesKey);
@@ -729,6 +732,8 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
     private void addFilter(final com.google.appengine.api.datastore.Query q, final String propertyName, final FilterOperator operator, Object value) {
         value = convertValue(value);
         q.addFilter(propertyName.trim(), operator, value);
+
+
     }
 
     private boolean containsEqualOrIn(final com.google.appengine.api.datastore.Query q) {
@@ -753,7 +758,9 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
         final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(kindName);
 
-        for (final Filter e : query.getFilters()) {
+        Collection<com.google.appengine.api.datastore.Query.Filter> filterPredicates = new ArrayList<com.google.appengine.api.datastore.Query.Filter>();
+        List<Filter> filters = query.getFilters();
+        for (final Filter e : filters) {
             final String condition = e.getCondition();
 
             final String key = getFieldFromCondition(condition);
@@ -771,7 +778,21 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             Object value = e.getValue();
             value = Utils.convert(value, keyType);
 
-            addFilter(q, key, operator, value);
+            if (com.maintainer.data.provider.Key.class.isAssignableFrom(value.getClass())) {
+                value = DatastoreDataProvider.createDatastoreKey((com.maintainer.data.provider.Key) value);
+            }
+
+            FilterPredicate filterPredicate = new FilterPredicate(key, operator, value);
+            filterPredicates.add(filterPredicate);
+        }
+
+        if (!filterPredicates.isEmpty()) {
+            if (filterPredicates.size() == 1) {
+                q.setFilter(filterPredicates.iterator().next());
+            } else {
+                CompositeFilter compositeFilter = new CompositeFilter(CompositeFilterOperator.AND, filterPredicates);
+                q.setFilter(compositeFilter);
+            }
         }
 
         final String pageDirection = query.getPageDirection();

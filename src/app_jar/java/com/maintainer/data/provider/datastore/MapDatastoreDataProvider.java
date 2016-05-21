@@ -217,7 +217,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                             final MapEntityImpl mapEntityImpl2 = (MapEntityImpl) value;
                             mapEntityImpl2.setMyClass(f.getMyClass());
                         }
-                        mapEntityImpl.set(fieldName, createOrUpdate(entity, f.readonly(), true /* f.create() */, true /* f.update() */));
+                        mapEntityImpl.set(fieldName, createOrUpdate(entity, f.readonly(), f.create(), f.update()));
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
                         final List<Object> list = new ArrayList<Object>();
                         if (value != null) {
@@ -244,7 +244,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                                     final MapEntityImpl mapEntityImpl2 = (MapEntityImpl) o;
                                     mapEntityImpl2.setMyClass(f.getMyClass());
                                 }
-                                iterator.set(createOrUpdate(entity, f.readonly(), true /* f.create() */, true /* f.update() */));
+                                iterator.set(createOrUpdate(entity, f.readonly(), f.create(), f.update()));
                             }
                         }
 
