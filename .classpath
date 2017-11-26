@@ -13,5 +13,6 @@
 	<classpathentry kind="lib" path="/Users/josephc/Documents/workspace/tools/appengine-java-sdk-1.9.26/lib/impl/appengine-api.jar"/>
 	<classpathentry kind="lib" path="/Users/josephc/Documents/workspace/tools/appengine-java-sdk-1.9.26/lib/testing/appengine-testing.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/app.server.base"/>
+	<classpathentry kind="lib" path="lib/runtime/jdo2-api-2.3-eb.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

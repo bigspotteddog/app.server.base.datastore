@@ -50,6 +50,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     continue;
                 }
 
+
                 Object value = e.getValue();
 
                 if (value != null) {
@@ -135,6 +136,10 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 continue;
             }
 
+            if (field.hasNotStored()) {
+                continue;
+            }
+
             Object value = target.get(fieldName);
 
             try {
@@ -142,6 +147,12 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     if (EntityBase.class.isAssignableFrom(value.getClass())) {
                         final EntityBase base = (EntityBase) value;
                         value = createDatastoreKey(base.getKey());
+                    } else if (Map.class.isAssignableFrom(value.getClass())) {
+                        String id = (String) ((Map) value).get("id");
+                        if (id != null) {
+                            com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.fromString(id);
+                            value = createDatastoreKey(key);
+                        }
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
                         final List<Object> list = new ArrayList<Object>((Collection<Object>) value);
                         value = list;
@@ -168,7 +179,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 }
             }
 
-            final boolean indexed = target.isIndexed(field);
+            final boolean indexed = target.isIndexed(field) && !field.hasNotIndexed();
             if (indexed) {
                 entity.setProperty(fieldName, value);
             } else {
@@ -374,5 +385,10 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             }
         }
         return super.getKindName(target);
+    }
+
+    @Override
+    protected String getKindName(Class<?> clazz) throws Exception {
+        return super.getKindName(clazz);
     }
 }

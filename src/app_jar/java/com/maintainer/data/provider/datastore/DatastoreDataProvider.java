@@ -142,7 +142,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     @Override
     public List<T> getAll(final Class<?> kind) throws Exception {
-        final String kindName = Utils.getKindName(kind);
+        final String kindName = getKindName(kind);
 
         final com.google.appengine.api.datastore.Query q = new com.google.appengine.api.datastore.Query(kindName);
         final FetchOptions options = FetchOptions.Builder.withDefaults();
@@ -684,6 +684,10 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     protected String getKindName(T target) throws Exception {
         Class<?> clazz = target.getClass();
+        return getKindName(clazz);
+    }
+
+    protected String getKindName(Class<?> clazz) throws Exception {
         String kindName = Utils.getKindName(clazz);
         return kindName;
     }
@@ -751,7 +755,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
         Class<?> clazz = query.getKind();
 
         if (clazz != null) {
-            kindName = Utils.getKindName(clazz);
+            kindName = getKindName(clazz);
         } else {
             kindName = query.getKindName();
         }
