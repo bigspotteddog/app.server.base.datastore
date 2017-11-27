@@ -121,15 +121,22 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     @Override
     @SuppressWarnings({"unchecked"})
     protected Entity toEntity(Entity entity, final T target) throws Exception {
-        if (target.get("identity") != null) {
-            target.setIdentity(target.get("identity"));
+        Object identity = target.get("identity");
+        if (identity != null) {
+            if (identity.getClass().isAssignableFrom(Double.class)) {
+                identity = ((Double) identity).longValue();
+            }
+            target.setIdentity(identity);
         }
 
         if (target.get("id") != null) {
             com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.fromString((String) target.get("id"));
-            MapEntityImpl parent = new MapEntityImpl();
-            parent.setKey(key.getParent());
-            target.setParent(parent);
+            com.maintainer.data.provider.Key parentKey = key.getParent();
+            if (parentKey != null) {
+                MapEntityImpl parent = new MapEntityImpl();
+                parent.setKey(parentKey);
+                target.setParent(parent);
+            }
         }
 
         entity = super.toEntity(entity, target);
@@ -174,6 +181,12 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                                 final EntityBase base = (EntityBase) o;
                                 final Key key = createDatastoreKey(base.getKey());
                                 iterator.set(key);
+                            } else if (Map.class.isAssignableFrom(o.getClass())) {
+                                String id = (String) ((Map) o).get("id");
+                                if (id != null) {
+                                    com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.fromString(id);
+                                    value = createDatastoreKey(key);
+                                }
                             }
                         }
                     }
