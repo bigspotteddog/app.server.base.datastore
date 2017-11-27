@@ -577,8 +577,16 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
             final String kindName = getKindName(target);
 
-            if (annotation != null && !Autocreate.EMPTY.equals(annotation.id())) {
-
+            if (target.getIdentity() != null) {
+                Object id = target.getIdentity();
+                Key key = null;
+                key = createDatastoreKey(parent, kindName, id);
+                final com.maintainer.data.provider.Key nobodyelsesKey = createNobodyelsesKey(key);
+                target.setId(getEncodedKeyString(nobodyelsesKey));
+                target.setIdentity(id);
+                entity = newEntity(key);
+                entity.setUnindexedProperty("identity", id);
+            } else if (annotation != null && !Autocreate.EMPTY.equals(annotation.id())) {
                 Object id = Utils.getFieldValue(target, annotation.id());
 
                 if (id != null) {
