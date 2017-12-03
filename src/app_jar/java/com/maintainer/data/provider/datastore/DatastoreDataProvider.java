@@ -180,10 +180,13 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     @Override
     public T put(T target) throws Exception {
+        boolean found = false;
         final com.maintainer.data.provider.Key nobodyelsesKey = target.getKey();
         if (nobodyelsesKey != null) {
             final T existing = get(nobodyelsesKey);
-
+            if (existing != null) {
+                found = true;
+            }
             if (checkEqual(target, existing)) {
                 ThreadLocalCache.get().remove(nobodyelsesKey);
                 return target;
@@ -192,7 +195,7 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
             }
         }
 
-        if (target.getId() == null) {
+        if (!found || target.getId() == null) {
             target = post(target);
             return target;
         }
@@ -692,7 +695,14 @@ public class DatastoreDataProvider<T extends EntityBase> extends AbstractDatasto
 
     protected String getKindName(T target) throws Exception {
         Class<?> clazz = target.getClass();
-        return getKindName(clazz);
+        String kindName = getKindName(clazz);
+        if (kindName == null) {
+            if (target.getId() != null) {
+                com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.fromString(target.getId());
+                return key.getKindName();
+            }
+        }
+        return kindName;
     }
 
     protected String getKindName(Class<?> clazz) throws Exception {

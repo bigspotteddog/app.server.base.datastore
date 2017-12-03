@@ -30,7 +30,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
 
     @Override
     @SuppressWarnings("unchecked")
-    public T fromEntity(final Class<?> kind, final Entity entity, final int depth, final int currentDepth, final Map<com.maintainer.data.provider.Key, Object> cache) throws Exception {
+    public T fromEntity(final Class<?> kind, final Entity entity, final int depth, final int currentDepth,
+            final Map<com.maintainer.data.provider.Key, Object> cache) throws Exception {
         final T obj = super.fromEntity(kind, entity, depth, currentDepth, cache);
 
         boolean keysOnly = false;
@@ -49,7 +50,6 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 case "properties":
                     continue;
                 }
-
 
                 Object value = e.getValue();
 
@@ -70,7 +70,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                             try {
                                 value = get(nobodyelsesKey, depth, currentDepth + 1, cache);
                             } catch (CirularReferenceException e1) {
-                                value = get(nobodyelsesKey, 1, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+                                value = get(nobodyelsesKey, 1, 0,
+                                        new HashMap<com.maintainer.data.provider.Key, Object>());
                             }
                         }
                     } else if (Text.class.isAssignableFrom(value.getClass())) {
@@ -79,7 +80,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                         final List<Object> list = new ArrayList<Object>((Collection<? extends Object>) value);
 
                         final ListIterator<Object> iterator = list.listIterator();
-                        while(iterator.hasNext()) {
+                        while (iterator.hasNext()) {
                             Object o = iterator.next();
                             if (Key.class.isAssignableFrom(o.getClass())) {
                                 final Key k = (Key) o;
@@ -92,13 +93,14 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                                     d = (int) cachedDepth;
                                 }
 
-                                if (keysOnly ||  d < currentDepth) {
+                                if (keysOnly || d < currentDepth) {
                                     o = getKeyedOnly(nobodyelsesKey);
                                 } else {
                                     try {
                                         o = get(nobodyelsesKey, depth, currentDepth + 1, cache);
                                     } catch (CirularReferenceException e1) {
-                                        o = get(nobodyelsesKey, 1, 0, new HashMap<com.maintainer.data.provider.Key, Object>());
+                                        o = get(nobodyelsesKey, 1, 0,
+                                                new HashMap<com.maintainer.data.provider.Key, Object>());
                                     }
                                 }
                                 iterator.set(o);
@@ -119,7 +121,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings({ "unchecked" })
     protected Entity toEntity(Entity entity, final T target) throws Exception {
         Object identity = target.get("identity");
         if (identity != null) {
@@ -130,7 +132,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         }
 
         if (target.get("id") != null) {
-            com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.fromString((String) target.get("id"));
+            com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key
+                    .fromString((String) target.get("id"));
             com.maintainer.data.provider.Key parentKey = key.getParent();
             if (parentKey != null) {
                 MapEntityImpl parent = new MapEntityImpl();
@@ -175,16 +178,24 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                         value = list;
 
                         final ListIterator<Object> iterator = list.listIterator();
-                        while(iterator.hasNext()) {
+                        while (iterator.hasNext()) {
                             final Object o = iterator.next();
                             if (EntityBase.class.isAssignableFrom(o.getClass())) {
                                 final EntityBase base = (EntityBase) o;
                                 final Key key = createDatastoreKey(base.getKey());
                                 iterator.set(key);
+                            } else if (MapEntityImpl.class.isAssignableFrom(o.getClass())) {
+                                final MapEntityImpl base = (MapEntityImpl) o;
+                                if (base.getId() != null) {
+                                    com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key
+                                            .fromString(base.getId());
+                                    iterator.set(key);
+                                }
                             } else if (Map.class.isAssignableFrom(o.getClass())) {
                                 String id = (String) ((Map) o).get("id");
                                 if (id != null) {
-                                    com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.fromString(id);
+                                    com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key
+                                            .fromString(id);
                                     value = createDatastoreKey(key);
                                 }
                             }
@@ -214,7 +225,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
     }
 
     @Override
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     protected void autocreateFromField(final EntityBase target, final T existing, final MyField f) {
         f.setAccessible(true);
         if (f.hasAutocreate() && !f.embedded()) {
@@ -249,7 +260,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                         final EntityBase entity = (EntityBase) value;
                         if (MapEntityImpl.class.isAssignableFrom(value.getClass())) {
                             final MapEntityImpl mapEntityImpl2 = (MapEntityImpl) value;
-                            mapEntityImpl2.setMyClass(f.getMyClass());
+                            MyClass myClass = getMyClass(mapEntityImpl2, f);
+                            mapEntityImpl2.setMyClass(myClass);
                         }
                         mapEntityImpl.set(fieldName, createOrUpdate(entity, f.readonly(), f.create(), f.update()));
                     } else if (Collection.class.isAssignableFrom(value.getClass())) {
@@ -267,7 +279,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                         }
 
                         final ListIterator<Object> iterator = list.listIterator();
-                        while(iterator.hasNext()) {
+                        while (iterator.hasNext()) {
                             final Object o = iterator.next();
                             if (o == null) {
                                 continue;
@@ -276,7 +288,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                                 final EntityBase entity = (EntityBase) o;
                                 if (MapEntityImpl.class.isAssignableFrom(o.getClass())) {
                                     final MapEntityImpl mapEntityImpl2 = (MapEntityImpl) o;
-                                    mapEntityImpl2.setMyClass(f.getMyClass());
+                                    MyClass myClass = getMyClass(mapEntityImpl2, f);
+                                    mapEntityImpl2.setMyClass(myClass);
                                 }
                                 iterator.set(createOrUpdate(entity, f.readonly(), f.create(), f.update()));
                             }
@@ -313,7 +326,7 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         return obj;
     }
 
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings({ "unchecked" })
     public T fromFields(final T obj, final List<MyField> fields, Map<String, Object> map) throws Exception {
         Gson gson = Utils.getGson();
 
@@ -329,9 +342,6 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                 Class<?> valueType = value.getClass();
 
                 if (Collection.class.isAssignableFrom(valueType)) {
-                    String className = field.getMyClass().getName();
-                    List<MyField> fields2 = Utils.getFields(className);
-
                     List<Object> list = new ArrayList<Object>((Collection) value);
                     List<Object> list2 = new ArrayList<Object>();
 
@@ -339,6 +349,26 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                         if (EntityBase.class.isAssignableFrom(type)) {
                             String json = gson.toJson(o);
                             T obj2 = super.fromJson(MapEntityImpl.class, json);
+                            Map<String, Object> map2 = gson.fromJson(json, Utils.getItemType());
+
+                            MyClass myClass = getMyClass(obj2, field);
+                            String className = myClass.getName();
+                            List<MyField> fields2 = Utils.getFields(className);
+
+                            obj2 = fromFields(obj2, fields2, map2);
+                            list2.add(obj2);
+                        } else if (Map.class.isAssignableFrom(o.getClass())) {
+                            String json = gson.toJson(o);
+                            T obj2 = super.fromJson(MapEntityImpl.class, json);
+
+                            ArrayList<MyField> fields2 = null;
+                            if (obj2.getId() != null) {
+                                com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key
+                                        .fromString(obj2.getId());
+                                Map<String, MyField> fieldsAsMap = Utils.getFieldsAsMap(key.getKind(), true);
+                                fields2 = new ArrayList<MyField>(fieldsAsMap.values());
+                            }
+
                             Map<String, Object> map2 = gson.fromJson(json, Utils.getItemType());
                             obj2 = fromFields(obj2, fields2, map2);
                             list2.add(obj2);
@@ -352,7 +382,8 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     String json = gson.toJson(value);
                     T obj2 = super.fromJson(MapEntityImpl.class, json);
 
-                    String className = field.getMyClass().getName();
+                    MyClass myClass = getMyClass(obj2, field);
+                    String className = myClass.getName();
                     List<MyField> fields2 = Utils.getFields(className);
                     value = fromFields(obj2, fields2, (Map<String, Object>) value);
                 }
@@ -361,7 +392,9 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
             if (value == null) {
                 Utils.setFieldValue(obj, field, null);
             } else {
-                if (MapEntityImpl.class.isAssignableFrom(type)) {
+                if (Collection.class.isAssignableFrom(type)) {
+                    Utils.setFieldValue(obj, field, value);
+                } else if (MapEntityImpl.class.isAssignableFrom(type)) {
                     Utils.setFieldValue(obj, field, value);
                 } else if (EntityBase.class.isAssignableFrom(type)) {
                     String json2 = gson.toJson(value);
@@ -383,16 +416,31 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
         return obj;
     }
 
+    private MyClass getMyClass(EntityBase target, MyField field) {
+        MyClass myClass = field.getMyClass();
+        if (myClass == null) {
+            if (target.getId() != null) {
+                com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.fromString(target.getId());
+                myClass = new MyClass();
+                myClass.setName(key.getKindName());
+                myClass.setRoute(key.getKindName().toLowerCase());
+            }
+        }
+        return myClass;
+    }
+
     @Override
     public Class<?> getClazz(final Key k) throws ClassNotFoundException {
         Class<?> class1 = super.getClazz(k);
         if (class1 == null) {
             // String kind = k.getKind();
-            // DataProvider<MyClass> dataProvider = (DataProvider<MyClass>) DataProviderFactory.instance().getDataProvider(MyClass.class);
-            // com.maintainer.data.provider.Key key = com.maintainer.data.provider.Key.create(MyClass.class, kind, null);
+            // DataProvider<MyClass> dataProvider = (DataProvider<MyClass>)
+            // DataProviderFactory.instance().getDataProvider(MyClass.class);
+            // com.maintainer.data.provider.Key key =
+            // com.maintainer.data.provider.Key.create(MyClass.class, kind, null);
             // MyClass clazz = dataProvider.get(key);
             // if (clazz != null) {
-                class1 = MapEntityImpl.class;
+            class1 = MapEntityImpl.class;
             // }
         }
         return class1;
