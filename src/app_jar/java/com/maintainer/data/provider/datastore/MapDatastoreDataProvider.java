@@ -346,6 +346,9 @@ public class MapDatastoreDataProvider<T extends MapEntityImpl> extends Datastore
                     List<Object> list2 = new ArrayList<Object>();
 
                     for (Object o : list) {
+                        if (o == null) {
+                            continue;
+                        }
                         if (EntityBase.class.isAssignableFrom(type)) {
                             String json = gson.toJson(o);
                             T obj2 = super.fromJson(MapEntityImpl.class, json);
